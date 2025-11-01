@@ -508,7 +508,7 @@ export default function MainApp() {
 
     // Evento: video_info
     if (eventType === "info" || (eventType === "video_info" && !videoInfoReceivedRef.current)) {
-      console.log("ℹ️ Info del video:", data)
+      console.log("ℹ️ Info del vídeo:", data)
       videoInfoReceivedRef.current = true
       setVideoInfo({
         duration: data.duration || 0,
@@ -516,7 +516,7 @@ export default function MainApp() {
         total_frames: data.total_frames || 0
       })
       videoDurationRef.current = Math.round(data.duration || 0)
-      setCurrentStep("Cargando video")
+      setCurrentStep("Cargando vídeo")
 
       if (data.optimizations) {
         setOptimizationInfo({
@@ -532,15 +532,15 @@ export default function MainApp() {
       if (data.message) {
         console.log("📊 Progreso:", data.message)
 
-        if (data.message.includes("Video guardado")) {
-          setCurrentStep("Cargando video")
+        if (data.message.includes("Vídeo guardado")) {
+          setCurrentStep("Cargando vídeo")
         } else if (data.message.includes("Buscando") && data.message.includes("TMDB")) {
           setCurrentStep("Obteniendo reparto de TMDB")
         } else if (data.message.includes("Cargando actor") || data.message.includes("Descargando fotos")) {
           setCurrentStep("Cargando fotos de actores")
         } else if (data.message.includes("encodings")) {
           setCurrentStep("Inicializando análisis")
-        } else if (data.message.includes("Procesando frames") || data.message.includes("Iniciando análisis") || data.message.includes("Analizando video")) {
+        } else if (data.message.includes("Procesando frames") || data.message.includes("Iniciando análisis") || data.message.includes("Analizando vídeo")) {
           setCurrentStep("Detectando rostros")
         } else if (data.message.includes("Generando") || data.message.includes("resultados")) {
           setCurrentStep("Generando datos para gráficos")
@@ -720,7 +720,7 @@ export default function MainApp() {
       }
 
       const finalReport: AnalysisReport = {
-        title: contentTitleRef.current || "Video Analizado",
+        title: contentTitleRef.current || "Vídeo Analizado",
         duration: videoDurationRef.current ? `${videoDurationRef.current}s` : "N/A",
         shots: data.total_frames_processed || frameCountRef.current,
         detectedActors: data.detected_actors || [],
@@ -904,13 +904,13 @@ export default function MainApp() {
     contentTitleRef.current = content.title || title
 
     setStatus("processing")
-    setConnectionStatus("Subiendo y procesando video...")
+    setConnectionStatus("Subiendo y procesando vídeo...")
 
     try {
       await processVideoWithSSE(file, title)
     } catch (error) {
       console.error("❌ Error en procesamiento:", error)
-      alert(`Error procesando video: ${error}`)
+      alert(`Error procesando vídeo: ${error}`)
       setStatus("idle")
     }
   }
@@ -953,7 +953,7 @@ export default function MainApp() {
                         <img
                             ref={imgRef}
                             src={processedFrameUrl}
-                            alt="Video procesado"
+                            alt="Vídeo procesado"
                             className="w-full h-auto rounded"
                             style={{ maxHeight: "70vh", objectFit: "contain" }}
                         />

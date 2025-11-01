@@ -5,10 +5,12 @@ import { Chart } from 'chart.js/auto'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 /**
- * GENERADOR DE PDF ESTILO NETFLIX - CVFlix
- * SIN simulación de datos - Solo usa datos reales del backend
- *
- * ✅ VERSIÓN PARCHEADA - Maneja correctamente paleta de colores y movimientos de cámara
+ * GENERADOR DE PDF ESTILO NETFLIX - CVFlix v2.0
+ * ✅ Diseño mejorado con márgenes uniformes
+ * ✅ Headers con logo y rectángulo negro
+ * ✅ Footer con fecha y paginación
+ * ✅ Iconos para emociones en lugar de emojis
+ * ✅ Diagramas con tamaño uniforme y buena separación
  */
 
 // ==================== CONFIGURACIÓN NETFLIX ====================
@@ -29,10 +31,119 @@ const colors = {
   mediumGray: [117, 117, 117] as [number, number, number],
 }
 
+// Colores naturales para emociones con iconos SVG
+const EMOTION_CONFIG = {
+  "Feliz": { color: "#4CAF50", icon: "smile" },        // Verde - 😊
+  "Triste": { color: "#2196F3", icon: "cloud-rain" },  // Azul - ☁
+  "Neutral": { color: "#9E9E9E", icon: "minus" },      // Gris - −
+  "Enfadado": { color: "#E50914", icon: "flame" },     // Rojo - 🔥
+  "Sorprendido": { color: "#FF9800", icon: "zap" },    // Naranja - ⚡
+  "Miedo": { color: "#9C27B0", icon: "skull" },        // Morado - ☠
+  "Disgustado": { color: "#795548", icon: "frown" }    // Marrón - ☹
+}
+
 // ==================== FUNCIONES DE GENERACIÓN DE GRÁFICOS ====================
 
 /**
- * Gráfico de barras horizontales para tipos de plano (SIN EJES - solo barras)
+ * Cargar logo desde public
+ */
+async function loadLogo(): Promise<string | null> {
+  try {
+    const logoPath = '/logo.png'
+    console.log(`🔍 Intentando cargar logo desde: ${logoPath}`)
+
+    const img = new Image()
+
+    return new Promise((resolve) => {
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas")
+          canvas.width = img.width
+          canvas.height = img.height
+          const ctx = canvas.getContext("2d")
+          if (ctx) {
+            ctx.drawImage(img, 0, 0)
+            const dataUrl = canvas.toDataURL("image/png")
+            console.log('✅ Logo cargado correctamente')
+            resolve(dataUrl)
+          } else {
+            console.warn('⚠️ No se pudo obtener contexto del canvas para el logo')
+            resolve(null)
+          }
+        } catch (error) {
+          console.error('❌ Error convirtiendo logo a base64:', error)
+          resolve(null)
+        }
+      }
+
+      img.onerror = (error) => {
+        console.warn('⚠️ No se pudo cargar el logo desde /logo.png, usando fallback de texto')
+        resolve(null)
+      }
+
+      img.src = logoPath
+    })
+  } catch (error) {
+    console.error('❌ Error en loadLogo:', error)
+    return null
+  }
+}
+
+/**
+ * Crear SVG de icono manualmente y convertirlo a imagen
+ * Esta es la forma correcta de usar "iconos" en canvas
+ */
+async function createIconSVG(iconName: string, color: string, size: number = 32): Promise<string> {
+  // SVGs manuales de los iconos (equivalentes a lucide-react)
+  const iconPaths: Record<string, string> = {
+    "smile": '<path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="9" cy="9" r="1" fill="currentColor"/><circle cx="15" cy="9" r="1" fill="currentColor"/>',
+    "cloud-rain": '<path d="M16 13v8M12 13v8M8 13v8M4 14.8C2.2 13.6 1 11.8 1 9.7 1 6.5 3.6 4 6.8 4c1.4 0 2.7.5 3.7 1.3C11.3 3.5 13.5 2 16 2c3.9 0 7 3.1 7 7 0 2.4-1.2 4.5-3 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    "minus": '<line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    "frown": '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M16 16s-1.5-2-4-2-4 2-4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="9" cy="9" r="1" fill="currentColor"/><circle cx="15" cy="9" r="1" fill="currentColor"/>',
+    "skull": '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9.5 9h.01M14.5 9h.01M10 14c.5.3 1.2.5 2 .5s1.5-.2 2-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 17l.5-1.5M15 17l-.5-1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    "zap": '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    "flame": '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+  }
+
+  const svgContent = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" style="color: ${color}">
+      ${iconPaths[iconName] || iconPaths["minus"]}
+    </svg>
+  `
+
+  return new Promise((resolve) => {
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        const dataUrl = canvas.toDataURL('image/png')
+        URL.revokeObjectURL(url)
+        resolve(dataUrl)
+      } else {
+        URL.revokeObjectURL(url)
+        resolve('')
+      }
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve('')
+    }
+
+    img.src = url
+  })
+}
+
+/**
+ * Gráfico de barras horizontales para tipos de plano - ✅ CORREGIDO
  */
 async function generateShotDistributionChart(
     data: Record<string, number>
@@ -40,12 +151,11 @@ async function generateShotDistributionChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 700
-      canvas.height = 400
+      canvas.width = 900
+      canvas.height = 500
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
-        console.warn('No se pudo obtener contexto 2D para shot distribution')
         resolve('')
         return
       }
@@ -55,7 +165,6 @@ async function generateShotDistributionChart(
           .slice(0, 8)
 
       if (sortedData.length === 0) {
-        console.warn('No hay datos para shot distribution')
         resolve('')
         return
       }
@@ -67,7 +176,8 @@ async function generateShotDistributionChart(
           datasets: [{
             data: sortedData.map(([, value]) => value),
             backgroundColor: DARK_RED,
-            borderRadius: 4,
+            borderRadius: 8,
+            barThickness: 40
           }]
         },
         options: {
@@ -80,20 +190,39 @@ async function generateShotDistributionChart(
           },
           scales: {
             x: {
-              display: false,
+              display: true,
               beginAtZero: true,
-              max: 100
+              max: 100,
+              grid: {
+                display: true,
+                color: 'rgba(0,0,0,0.05)'
+              },
+              ticks: {
+                display: false
+              }
             },
             y: {
-              display: false
+              display: true,
+              grid: { display: false },
+              ticks: {
+                display: true,
+                font: {
+                  size: 16,
+                  weight: 'bold',
+                  family: 'Arial, sans-serif'
+                },
+                color: BLACK,
+                padding: 10,
+                crossAlign: 'far'
+              }
             }
           },
           layout: {
             padding: {
-              left: 120,
-              right: 20,
-              top: 10,
-              bottom: 10
+              left: 20,
+              right: 60,
+              top: 20,
+              bottom: 20
             }
           }
         },
@@ -105,29 +234,33 @@ async function generateShotDistributionChart(
 
             chart.data.datasets[0].data.forEach((value, index) => {
               const bar = meta.data[index]
-              const label = chart.data.labels?.[index] as string
 
-              // Etiqueta del tipo de plano (izquierda)
-              ctx.fillStyle = BLACK
-              ctx.font = 'bold 13px sans-serif'
-              ctx.textAlign = 'right'
-              ctx.textBaseline = 'middle'
-              ctx.fillText(
-                  label,
-                  (bar as any).x - (bar as any).width - 10,
-                  (bar as any).y
-              )
-
-              // Porcentaje dentro de la barra
+              // Porcentaje dentro/al lado de la barra
               ctx.fillStyle = 'white'
-              ctx.font = 'bold 14px sans-serif'
+              ctx.font = 'bold 18px sans-serif'
               ctx.textAlign = 'right'
               ctx.textBaseline = 'middle'
-              ctx.fillText(
-                  `${(value as number).toFixed(1)}%`,
-                  (bar as any).x - 10,
-                  (bar as any).y
-              )
+
+              const barWidth = (bar as any).width
+              const barX = (bar as any).x
+              const barY = (bar as any).y
+
+              // Si la barra es muy pequeña, poner el texto fuera
+              if (barWidth < 80) {
+                ctx.fillStyle = BLACK
+                ctx.fillText(
+                    `${(value as number).toFixed(1)}%`,
+                    barX + 40,
+                    barY
+                )
+              } else {
+                ctx.fillStyle = 'white'
+                ctx.fillText(
+                    `${(value as number).toFixed(1)}%`,
+                    barX - 15,
+                    barY
+                )
+              }
             })
           }
         }]
@@ -146,7 +279,7 @@ async function generateShotDistributionChart(
 }
 
 /**
- * Donut de distribución de emociones (COLORES ROJO Y NEGRO)
+ * Donut de distribución de emociones con iconos
  */
 async function generateEmotionDonutChart(
     distribution: Record<string, number>
@@ -154,12 +287,11 @@ async function generateEmotionDonutChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 500
-      canvas.height = 500
+      canvas.width = 700
+      canvas.height = 700
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
-        console.warn('No se pudo obtener contexto 2D para emotion donut')
         resolve('')
         return
       }
@@ -169,20 +301,8 @@ async function generateEmotionDonutChart(
           .slice(0, 7)
 
       if (emotions.length === 0) {
-        console.warn('No hay datos de emociones')
         resolve('')
         return
-      }
-
-      // NUEVA PALETA: Rojo y Negro
-      const EMOTION_COLORS = {
-        "Feliz": "#FFFFFF",
-        "Triste": "#424242",
-        "Neutral": "#757575",
-        "Enfadado": "#E50914",
-        "Sorprendido": "#9E9E9E",
-        "Miedo": "#B71C1C",
-        "Disgustado": "#000000"
       }
 
       const chart = new Chart(ctx, {
@@ -192,9 +312,9 @@ async function generateEmotionDonutChart(
           datasets: [{
             data: emotions.map(([, value]) => value),
             backgroundColor: emotions.map(([name]) =>
-                EMOTION_COLORS[name as keyof typeof EMOTION_COLORS] || "#757575"
+                EMOTION_CONFIG[name as keyof typeof EMOTION_CONFIG]?.color || "#757575"
             ),
-            borderWidth: 3,
+            borderWidth: 5,
             borderColor: '#fff'
           }]
         },
@@ -205,10 +325,10 @@ async function generateEmotionDonutChart(
             legend: {
               position: 'bottom',
               labels: {
-                font: { size: 12, weight: 'bold' },
+                font: { size: 16, weight: 'bold' },
                 color: BLACK,
-                padding: 15,
-                boxWidth: 20
+                padding: 20,
+                boxWidth: 30
               }
             },
             tooltip: { enabled: false }
@@ -227,12 +347,8 @@ async function generateEmotionDonutChart(
                 const x = arc.x + Math.cos(angle) * radius
                 const y = arc.y + Math.sin(angle) * radius
 
-                const emotionName = emotions[index][0]
-                const bgColor = EMOTION_COLORS[emotionName as keyof typeof EMOTION_COLORS]
-
-                // Texto blanco para colores oscuros, negro para claros
-                ctx.fillStyle = (bgColor === "#FFFFFF" || bgColor === "#9E9E9E") ? 'black' : 'white'
-                ctx.font = 'bold 14px sans-serif'
+                ctx.fillStyle = 'white'
+                ctx.font = 'bold 18px sans-serif'
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'middle'
                 ctx.fillText(`${value.toFixed(1)}%`, x, y)
@@ -255,7 +371,7 @@ async function generateEmotionDonutChart(
 }
 
 /**
- * Medidor semicircular de emoción dominante (VERDE/AMARILLO/ROJO CON ICONOS)
+ * Medidor semicircular de emoción dominante con iconos mejorados
  */
 async function generateEmotionGaugeChart(
     dominantEmotion: string,
@@ -264,8 +380,8 @@ async function generateEmotionGaugeChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 400
+      canvas.width = 700
+      canvas.height = 700
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -273,26 +389,24 @@ async function generateEmotionGaugeChart(
         return
       }
 
-      // Fondo blanco
       ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      const centerX = 300
-      const centerY = 280
-      const radius = 150
+      const centerX = 350
+      const centerY = 380
+      const radius = 220
 
-      // Emociones con iconos y colores verde/amarillo/rojo
       const emotions = [
-        { name: "Feliz", emoji: "😊", color: "#4CAF50", start: 0, end: 25.7 },
-        { name: "Sorprendido", emoji: "⚡", color: "#8BC34A", start: 25.7, end: 51.4 },
-        { name: "Neutral", emoji: "😐", color: "#FFEB3B", start: 51.4, end: 77.1 },
-        { name: "Disgustado", emoji: "😖", color: "#FFC107", start: 77.1, end: 102.8 },
-        { name: "Miedo", emoji: "💀", color: "#FF9800", start: 102.8, end: 128.5 },
-        { name: "Triste", emoji: "🌧️", color: "#FF5722", start: 128.5, end: 154.2 },
-        { name: "Enfadado", emoji: "🔥", color: "#F44336", start: 154.2, end: 180 }
+        { name: "Feliz", color: "#4CAF50", start: 0, end: 25.7 },
+        { name: "Sorprendido", color: "#FF9800", start: 25.7, end: 51.4 },
+        { name: "Neutral", color: "#9E9E9E", start: 51.4, end: 77.1 },
+        { name: "Disgustado", color: "#795548", start: 77.1, end: 102.8 },
+        { name: "Miedo", color: "#9C27B0", start: 102.8, end: 128.5 },
+        { name: "Triste", color: "#2196F3", start: 128.5, end: 154.2 },
+        { name: "Enfadado", color: "#E50914", start: 154.2, end: 180 }
       ]
 
-      ctx.lineWidth = 24
+      ctx.lineWidth = 35
       emotions.forEach(emotion => {
         ctx.beginPath()
         ctx.arc(
@@ -306,59 +420,76 @@ async function generateEmotionGaugeChart(
         ctx.stroke()
       })
 
-      // Dibujar emojis/iconos en cada sección
-      emotions.forEach(emotion => {
+      emotions.forEach(async (emotion) => {
         const angle = (emotion.start + emotion.end) / 2
         const angleRad = (angle - 180) * Math.PI / 180
-        const iconRadius = 195
+        const iconRadius = 280
         const x = centerX + iconRadius * Math.cos(angleRad)
         const y = centerY + iconRadius * Math.sin(angleRad)
 
-        ctx.font = '24px Arial'
+        const symbols: Record<string, string> = {
+          "Feliz": "☺",
+          "Sorprendido": "⚡",
+          "Neutral": "−",
+          "Disgustado": "☹",
+          "Miedo": "☠",
+          "Triste": "☁",
+          "Enfadado": "🔥"
+        }
+
+        ctx.font = '34px Arial'
+        ctx.fillStyle = emotion.color
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(emotion.emoji, x, y)
+        ctx.fillText(symbols[emotion.name] || "○", x, y)
       })
 
-      // Encontrar ángulo de la emoción dominante
       const emotion = emotions.find(e => e.name === dominantEmotion)
       const angle = emotion ? (emotion.start + emotion.end) / 2 : 90
 
-      // Dibujar aguja
       ctx.beginPath()
       ctx.moveTo(centerX, centerY)
       const needleAngle = (angle - 180) * Math.PI / 180
       ctx.lineTo(
-          centerX + (radius - 15) * Math.cos(needleAngle),
-          centerY + (radius - 15) * Math.sin(needleAngle)
+          centerX + (radius - 25) * Math.cos(needleAngle),
+          centerY + (radius - 25) * Math.sin(needleAngle)
       )
       ctx.strokeStyle = BLACK
-      ctx.lineWidth = 4
+      ctx.lineWidth = 6
       ctx.stroke()
 
-      // Centro de la aguja
       ctx.beginPath()
-      ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI)
+      ctx.arc(centerX, centerY, 12, 0, 2 * Math.PI)
       ctx.fillStyle = BLACK
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI)
+      ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI)
       ctx.fillStyle = WHITE
       ctx.fill()
 
-      // Texto central
-      const emotionEmoji = emotion?.emoji || "😐"
-      ctx.font = 'bold 48px Arial'
-      ctx.fillStyle = BLACK
+      const symbols: Record<string, string> = {
+        "Feliz": "☺",
+        "Sorprendido": "⚡",
+        "Neutral": "−",
+        "Disgustado": "☹",
+        "Miedo": "☠",
+        "Triste": "☁",
+        "Enfadado": "🔥"
+      }
+
+      const emotionSymbol = symbols[dominantEmotion] || "○"
+      ctx.font = 'bold 64px Arial'
+      ctx.fillStyle = emotion?.color || BLACK
       ctx.textAlign = 'center'
-      ctx.fillText(emotionEmoji, centerX, centerY + 60)
+      ctx.fillText(emotionSymbol, centerX, centerY + 90)
 
-      ctx.font = 'bold 24px sans-serif'
-      ctx.fillText(dominantEmotion, centerX, centerY + 100)
+      ctx.font = 'bold 32px sans-serif'
+      ctx.fillStyle = BLACK
+      ctx.fillText(dominantEmotion, centerX, centerY + 150)
 
-      ctx.font = '18px sans-serif'
+      ctx.font = '22px sans-serif'
       ctx.fillStyle = MID_GRAY
-      ctx.fillText(`${percentage.toFixed(1)}% del contenido`, centerX, centerY + 125)
+      ctx.fillText(`${percentage.toFixed(1)}% del contenido`, centerX, centerY + 185)
 
       setTimeout(() => {
         const imgData = canvas.toDataURL('image/png')
@@ -380,8 +511,8 @@ async function generateColorHistogramChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 800
-      canvas.height = 300
+      canvas.width = 900
+      canvas.height = 350
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -399,30 +530,30 @@ async function generateColorHistogramChart(
             {
               label: 'Rojo',
               data: data.r,
-              borderColor: 'rgba(229, 9, 20, 0.7)',
-              backgroundColor: 'rgba(229, 9, 20, 0.1)',
+              borderColor: 'rgba(229, 9, 20, 0.8)',
+              backgroundColor: 'rgba(229, 9, 20, 0.15)',
               fill: true,
-              borderWidth: 2,
+              borderWidth: 2.5,
               pointRadius: 0,
               tension: 0.3
             },
             {
               label: 'Verde',
               data: data.g,
-              borderColor: 'rgba(76, 175, 80, 0.7)',
-              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              borderColor: 'rgba(76, 175, 80, 0.8)',
+              backgroundColor: 'rgba(76, 175, 80, 0.15)',
               fill: true,
-              borderWidth: 2,
+              borderWidth: 2.5,
               pointRadius: 0,
               tension: 0.3
             },
             {
               label: 'Azul',
               data: data.b,
-              borderColor: 'rgba(33, 150, 243, 0.7)',
-              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              borderColor: 'rgba(33, 150, 243, 0.8)',
+              backgroundColor: 'rgba(33, 150, 243, 0.15)',
               fill: true,
-              borderWidth: 2,
+              borderWidth: 2.5,
               pointRadius: 0,
               tension: 0.3
             }
@@ -435,9 +566,10 @@ async function generateColorHistogramChart(
             legend: {
               position: 'top',
               labels: {
-                font: { size: 12, weight: 'bold' },
+                font: { size: 14, weight: 'bold' },
                 color: BLACK,
-                boxWidth: 30
+                boxWidth: 35,
+                padding: 15
               }
             },
             tooltip: { enabled: false }
@@ -447,16 +579,16 @@ async function generateColorHistogramChart(
               display: true,
               grid: { display: false },
               ticks: {
-                maxTicksLimit: 8,
-                font: { size: 10 },
+                maxTicksLimit: 10,
+                font: { size: 11 },
                 color: MID_GRAY
               }
             },
             y: {
               display: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
+              grid: { color: 'rgba(0,0,0,0.06)' },
               ticks: {
-                font: { size: 10 },
+                font: { size: 11 },
                 color: MID_GRAY
               }
             }
@@ -477,7 +609,7 @@ async function generateColorHistogramChart(
 }
 
 /**
- * ✅ PARCHEADO: Gráfico de análisis de esquema cromático
+ * Gráfico de análisis de esquema cromático
  */
 async function generateColorSchemeChart(
     scheme: string,
@@ -487,8 +619,8 @@ async function generateColorSchemeChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 350
+      canvas.width = 700
+      canvas.height = 400
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -499,90 +631,77 @@ async function generateColorSchemeChart(
       ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Título
-      ctx.font = 'bold 20px sans-serif'
+      ctx.font = 'bold 22px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText('Esquema Cromático', 300, 30)
+      ctx.fillText('Esquema Cromático', 350, 35)
 
-      // Esquema identificado
       ctx.fillStyle = BLACK
-      ctx.fillRect(200, 50, 200, 40)
-      ctx.font = 'bold 16px sans-serif'
+      ctx.fillRect(225, 60, 250, 50)
+      ctx.font = 'bold 18px sans-serif'
       ctx.fillStyle = WHITE
       ctx.textAlign = 'center'
-      ctx.fillText(scheme.toUpperCase(), 300, 75)
+      ctx.fillText(scheme.toUpperCase(), 350, 92)
 
-      // ✅ PARCHE: Filtrar colores válidos ANTES de usarlos
       const colors = dominantColors
           .filter(c => {
             if (!c) return false
-
             const hasHex = typeof c.hex === 'string' && c.hex.length > 0
             const hasRgb = Array.isArray(c.rgb) && c.rgb.length >= 3
-
-            // ✅ CRÍTICO: El backend envía 'percentage', NO 'frequency'
             const freq = c.percentage || c.frequency || (c as any).appearances || 0
             const hasFreq = typeof freq === 'number' && freq >= 0
-
             return hasHex && hasRgb && hasFreq
           })
           .slice(0, 3)
 
-      console.log(`🎨 Colores válidos: ${colors.length}/${dominantColors.length}`)
-
       if (colors.length === 0) {
-        console.warn("⚠️ No hay colores válidos para scheme chart")
-        ctx.font = '14px sans-serif'
+        ctx.font = '16px sans-serif'
         ctx.fillStyle = BLACK
         ctx.textAlign = 'center'
-        ctx.fillText('Datos insuficientes', 300, 200)
+        ctx.fillText('Datos insuficientes', 350, 250)
         resolve(canvas.toDataURL('image/png'))
         return
       }
 
-      // Colores dominantes
-      const boxWidth = 80
-      const startX = 300 - (colors.length * boxWidth) / 2
+      const boxWidth = 100
+      const startX = 350 - (colors.length * boxWidth) / 2
 
       colors.forEach((color, index) => {
         const x = startX + index * boxWidth + 10
 
         ctx.fillStyle = color.hex
-        ctx.fillRect(x, 110, boxWidth - 20, boxWidth - 20)
+        ctx.fillRect(x, 135, boxWidth - 20, boxWidth - 20)
 
         ctx.strokeStyle = '#ccc'
         ctx.lineWidth = 2
-        ctx.strokeRect(x, 110, boxWidth - 20, boxWidth - 20)
+        ctx.strokeRect(x, 135, boxWidth - 20, boxWidth - 20)
 
-        ctx.font = '11px monospace'
+        ctx.font = '12px monospace'
         ctx.fillStyle = BLACK
         ctx.textAlign = 'center'
-        ctx.fillText(color.hex.toUpperCase(), x + (boxWidth - 20) / 2, 180)
+        ctx.fillText(color.hex.toUpperCase(), x + (boxWidth - 20) / 2, 220)
 
-        ctx.font = '10px sans-serif'
+        ctx.font = '11px sans-serif'
         ctx.fillStyle = MID_GRAY
-        // Usar percentage o frequency
         const freq = color.percentage || color.frequency || (color as any).appearances || 0
-        ctx.fillText(`${freq.toFixed(1)}%`, x + (boxWidth - 20) / 2, 195)
+        ctx.fillText(`${freq.toFixed(1)}%`, x + (boxWidth - 20) / 2, 237)
       })
 
-      // Barra de diferencia de matiz
-      ctx.font = 'bold 14px sans-serif'
+      ctx.font = 'bold 16px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'left'
-      ctx.fillText('Diferencia Angular de Matiz', 50, 230)
+      ctx.fillText('Diferencia Angular de Matiz', 70, 275)
 
-      ctx.font = 'bold 14px sans-serif'
+      ctx.font = 'bold 16px sans-serif'
       ctx.textAlign = 'right'
-      ctx.fillText(`${maxHueDifference.toFixed(1)}°`, 550, 230)
+      ctx.fillText(`${maxHueDifference.toFixed(1)}°`, 630, 275)
 
-      const barWidth = 500
-      const barX = 50
-      const barY = 240
+      const barWidth = 560
+      const barX = 70
+      const barY = 290
 
       ctx.fillStyle = '#f0f0f0'
-      ctx.fillRect(barX, barY, barWidth, 30)
+      ctx.fillRect(barX, barY, barWidth, 35)
 
       const fillWidth = (maxHueDifference / 180) * barWidth
       const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0)
@@ -591,42 +710,40 @@ async function generateColorSchemeChart(
       gradient.addColorStop(1, '#8B0000')
 
       ctx.fillStyle = gradient
-      ctx.fillRect(barX, barY, fillWidth, 30)
+      ctx.fillRect(barX, barY, fillWidth, 35)
 
       ctx.strokeStyle = '#ccc'
       ctx.lineWidth = 1
-      ctx.strokeRect(barX, barY, barWidth, 30)
+      ctx.strokeRect(barX, barY, barWidth, 35)
 
       if (maxHueDifference > 20) {
-        ctx.font = 'bold 12px sans-serif'
+        ctx.font = 'bold 14px sans-serif'
         ctx.fillStyle = WHITE
         ctx.textAlign = 'right'
-        ctx.fillText(`${maxHueDifference.toFixed(1)}°`, barX + fillWidth - 5, barY + 20)
+        ctx.fillText(`${maxHueDifference.toFixed(1)}°`, barX + fillWidth - 8, barY + 22)
       }
 
-      // Escala
-      ctx.font = '10px sans-serif'
+      ctx.font = '11px sans-serif'
       ctx.fillStyle = MID_GRAY
       ctx.textAlign = 'left'
-      ctx.fillText('0° (Monocromático)', barX, barY + 45)
+      ctx.fillText('0° (Monocromático)', barX, barY + 52)
       ctx.textAlign = 'right'
-      ctx.fillText('180° (Complementario)', barX + barWidth, barY + 45)
+      ctx.fillText('180° (Complementario)', barX + barWidth, barY + 52)
 
-      // Nivel de contraste
       let contrastLevel = "Muy Bajo"
       if (maxHueDifference >= 120) contrastLevel = "Muy Alto"
       else if (maxHueDifference >= 60) contrastLevel = "Alto"
       else if (maxHueDifference >= 30) contrastLevel = "Moderado"
       else if (maxHueDifference >= 15) contrastLevel = "Bajo"
 
-      ctx.font = 'bold 14px sans-serif'
+      ctx.font = 'bold 16px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'left'
-      ctx.fillText('Nivel de Contraste:', 50, 300)
+      ctx.fillText('Nivel de Contraste:', 70, 365)
 
-      ctx.font = 'bold 14px sans-serif'
+      ctx.font = 'bold 16px sans-serif'
       ctx.textAlign = 'right'
-      ctx.fillText(contrastLevel, 550, 300)
+      ctx.fillText(contrastLevel, 630, 365)
 
       setTimeout(() => {
         const imgData = canvas.toDataURL('image/png')
@@ -648,8 +765,8 @@ async function generateColorTemperatureGauge(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 350
+      canvas.width = 700
+      canvas.height = 350  // Reducido de 400 a 350
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -660,17 +777,15 @@ async function generateColorTemperatureGauge(
       ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Título
-      ctx.font = 'bold 20px sans-serif'
+      ctx.font = 'bold 22px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText('Temperatura de Color', 300, 30)
+      ctx.fillText('Temperatura de Color', 350, 30)  // Reducido espaciado
 
-      // Barra de gradiente
-      const barWidth = 500
-      const barHeight = 50
+      const barWidth = 600
+      const barHeight = 55  // Reducido de 60 a 55
       const barX = 50
-      const barY = 70
+      const barY = 60  // Reducido de 70 a 60
 
       const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0)
       gradient.addColorStop(0, '#1E88E5')
@@ -688,55 +803,50 @@ async function generateColorTemperatureGauge(
       ctx.lineWidth = 2
       ctx.strokeRect(barX, barY, barWidth, barHeight)
 
-      // Indicador
       const percentage = ((temperature.value + 1) / 2) * 100
       const indicatorX = barX + (percentage / 100) * barWidth
 
       ctx.fillStyle = BLACK
-      ctx.fillRect(indicatorX - 2, barY - 10, 4, barHeight + 20)
+      ctx.fillRect(indicatorX - 3, barY - 12, 6, barHeight + 24)  // Reducido
 
-      // Flechas
       ctx.beginPath()
-      ctx.moveTo(indicatorX, barY - 10)
-      ctx.lineTo(indicatorX - 6, barY - 18)
-      ctx.lineTo(indicatorX + 6, barY - 18)
+      ctx.moveTo(indicatorX, barY - 12)
+      ctx.lineTo(indicatorX - 8, barY - 22)
+      ctx.lineTo(indicatorX + 8, barY - 22)
       ctx.closePath()
       ctx.fill()
 
       ctx.beginPath()
-      ctx.moveTo(indicatorX, barY + barHeight + 10)
-      ctx.lineTo(indicatorX - 6, barY + barHeight + 18)
-      ctx.lineTo(indicatorX + 6, barY + barHeight + 18)
+      ctx.moveTo(indicatorX, barY + barHeight + 12)
+      ctx.lineTo(indicatorX - 8, barY + barHeight + 22)
+      ctx.lineTo(indicatorX + 8, barY + barHeight + 22)
       ctx.closePath()
       ctx.fill()
 
-      // Etiquetas
-      ctx.font = '11px sans-serif'
+      ctx.font = '12px sans-serif'
       ctx.fillStyle = MID_GRAY
       ctx.textAlign = 'left'
-      ctx.fillText('Frío (2000K)', barX, barY + barHeight + 35)
+      ctx.fillText('Frío (2000K)', barX, barY + barHeight + 40)
       ctx.textAlign = 'center'
-      ctx.fillText('Neutral (6000K)', barX + barWidth / 2, barY + barHeight + 35)
+      ctx.fillText('Neutral (6000K)', barX + barWidth / 2, barY + barHeight + 40)
       ctx.textAlign = 'right'
-      ctx.fillText('Cálido (10000K)', barX + barWidth, barY + barHeight + 35)
+      ctx.fillText('Cálido (10000K)', barX + barWidth, barY + barHeight + 40)
 
-      // Valor central
       const kelvinApprox = Math.round(2000 + (temperature.value + 1) * 4000)
 
-      ctx.font = 'bold 36px sans-serif'
+      ctx.font = 'bold 38px sans-serif'  // Reducido de 42
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText(temperature.label, 300, 200)
+      ctx.fillText(temperature.label, 350, 200)  // Reducido espaciado
 
-      ctx.font = '20px sans-serif'
+      ctx.font = '22px sans-serif'  // Reducido de 24
       ctx.fillStyle = MID_GRAY
-      ctx.fillText(`~${kelvinApprox}K`, 300, 230)
+      ctx.fillText(`~${kelvinApprox}K`, 350, 230)  // Reducido espaciado
 
-      ctx.font = '14px sans-serif'
-      ctx.fillText(`Valor: ${temperature.value.toFixed(2)}`, 300, 255)
+      ctx.font = '15px sans-serif'  // Reducido de 16
+      ctx.fillText(`Valor: ${temperature.value.toFixed(2)}`, 350, 255)  // Reducido espaciado
 
-      // Interpretación
-      ctx.font = '12px sans-serif'
+      ctx.font = '13px sans-serif'  // Reducido de 14
       ctx.fillStyle = MID_GRAY
       let interpretation = ''
       if (temperature.value > 0.2) {
@@ -747,7 +857,7 @@ async function generateColorTemperatureGauge(
         interpretation = 'Tonos fríos predominantes (azules)'
       }
       ctx.textAlign = 'center'
-      ctx.fillText(interpretation, 300, 290)
+      ctx.fillText(interpretation, 350, 300)  // Reducido espaciado
 
       setTimeout(() => {
         const imgData = canvas.toDataURL('image/png')
@@ -761,7 +871,7 @@ async function generateColorTemperatureGauge(
 }
 
 /**
- * Radar de composición (SIN PUNTUACIÓN)
+ * Radar de composición
  */
 async function generateCompositionRadarChart(
     data: { rule_of_thirds: number; symmetry: number; balance: number; depth_cues: number }
@@ -769,8 +879,8 @@ async function generateCompositionRadarChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 500
-      canvas.height = 500
+      canvas.width = 600
+      canvas.height = 600
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -789,13 +899,13 @@ async function generateCompositionRadarChart(
               data.balance,
               data.depth_cues
             ],
-            backgroundColor: 'rgba(183, 28, 28, 0.2)',
+            backgroundColor: 'rgba(183, 28, 28, 0.25)',
             borderColor: DARK_RED,
-            borderWidth: 3,
+            borderWidth: 4,
             pointBackgroundColor: DARK_RED,
             pointBorderColor: WHITE,
-            pointBorderWidth: 2,
-            pointRadius: 6
+            pointBorderWidth: 3,
+            pointRadius: 8
           }]
         },
         options: {
@@ -811,15 +921,15 @@ async function generateCompositionRadarChart(
               max: 1,
               ticks: {
                 stepSize: 0.25,
-                font: { size: 10 },
+                font: { size: 12 },
                 color: MID_GRAY,
                 backdropColor: 'transparent'
               },
               grid: {
-                color: 'rgba(0,0,0,0.1)'
+                color: 'rgba(0,0,0,0.12)'
               },
               pointLabels: {
-                font: { size: 13, weight: 'bold' },
+                font: { size: 15, weight: 'bold' },
                 color: BLACK
               }
             }
@@ -840,7 +950,7 @@ async function generateCompositionRadarChart(
 }
 
 /**
- * Gráfico de zonas de iluminación (heatmap)
+ * Gráfico de zonas de iluminación
  */
 async function generateLightingZonesChart(
     zones: { shadows: number; midtones: number; highlights: number }
@@ -848,8 +958,8 @@ async function generateLightingZonesChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 300
+      canvas.width = 700
+      canvas.height = 350
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -860,11 +970,10 @@ async function generateLightingZonesChart(
       ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Título
-      ctx.font = 'bold 18px sans-serif'
+      ctx.font = 'bold 20px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText('Distribución de Zonas de Luz', 300, 30)
+      ctx.fillText('Distribución de Zonas de Luz', 350, 30)
 
       const shadowsPercent = zones.shadows * 100
       const midtonesPercent = zones.midtones * 100
@@ -876,22 +985,20 @@ async function generateLightingZonesChart(
         { name: 'Altas Luces (170-255)', value: highlightsPercent, color: '#BDBDBD' }
       ]
 
-      let yPos = 60
+      let yPos = 65
       zoneData.forEach((zone, index) => {
-        // Etiqueta y valor
-        ctx.font = 'bold 14px sans-serif'
+        ctx.font = 'bold 16px sans-serif'
         ctx.fillStyle = BLACK
         ctx.textAlign = 'left'
-        ctx.fillText(zone.name, 50, yPos + 15)
+        ctx.fillText(zone.name, 60, yPos + 18)
 
         ctx.textAlign = 'right'
-        ctx.fillText(`${zone.value.toFixed(1)}%`, 550, yPos + 15)
+        ctx.fillText(`${zone.value.toFixed(1)}%`, 640, yPos + 18)
 
-        // Barra
-        const barWidth = 450
-        const barHeight = 40
-        const barX = 50
-        const barY = yPos + 25
+        const barWidth = 550
+        const barHeight = 50
+        const barX = 60
+        const barY = yPos + 28
 
         ctx.fillStyle = '#f0f0f0'
         ctx.fillRect(barX, barY, barWidth, barHeight)
@@ -904,15 +1011,14 @@ async function generateLightingZonesChart(
         ctx.lineWidth = 1
         ctx.strokeRect(barX, barY, barWidth, barHeight)
 
-        // Porcentaje dentro de la barra
         if (zone.value > 15) {
-          ctx.font = 'bold 12px sans-serif'
+          ctx.font = 'bold 14px sans-serif'
           ctx.fillStyle = (index === 2) ? BLACK : WHITE
           ctx.textAlign = 'right'
-          ctx.fillText(`${zone.value.toFixed(1)}%`, barX + fillWidth - 10, barY + barHeight / 2 + 5)
+          ctx.fillText(`${zone.value.toFixed(1)}%`, barX + fillWidth - 12, barY + barHeight / 2 + 6)
         }
 
-        yPos += 75
+        yPos += 90
       })
 
       setTimeout(() => {
@@ -935,8 +1041,8 @@ async function generateLightingTypesChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 300
+      canvas.width = 700
+      canvas.height = 350
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -971,7 +1077,7 @@ async function generateLightingTypesChart(
             backgroundColor: sortedData.map(([name]) =>
                 LIGHTING_COLORS[name as keyof typeof LIGHTING_COLORS] || "#757575"
             ),
-            borderRadius: 4,
+            borderRadius: 6,
           }]
         },
         options: {
@@ -984,9 +1090,9 @@ async function generateLightingTypesChart(
             title: {
               display: true,
               text: 'Tipos de Iluminación',
-              font: { size: 18, weight: 'bold' },
+              font: { size: 20, weight: 'bold' },
               color: BLACK,
-              padding: { bottom: 20 }
+              padding: { bottom: 25 }
             }
           },
           scales: {
@@ -996,14 +1102,14 @@ async function generateLightingTypesChart(
               grid: { display: false },
               ticks: {
                 callback: (value) => `${value}%`,
-                font: { size: 11 },
+                font: { size: 12 },
                 color: MID_GRAY
               }
             },
             y: {
               grid: { display: false },
               ticks: {
-                font: { size: 13, weight: 'bold' },
+                font: { size: 14, weight: 'bold' },
                 color: BLACK
               }
             }
@@ -1017,12 +1123,12 @@ async function generateLightingTypesChart(
               const meta = chart.getDatasetMeta(0)
               const bar = meta.data[index]
               ctx.fillStyle = 'white'
-              ctx.font = 'bold 13px sans-serif'
+              ctx.font = 'bold 14px sans-serif'
               ctx.textAlign = 'right'
               ctx.textBaseline = 'middle'
               ctx.fillText(
                   `${(value as number).toFixed(1)}%`,
-                  (bar as any).x - 10,
+                  (bar as any).x - 12,
                   (bar as any).y
               )
             })
@@ -1052,8 +1158,8 @@ async function generateExposureGauge(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 300
+      canvas.width = 700
+      canvas.height = 350
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -1064,59 +1170,55 @@ async function generateExposureGauge(
       ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Título
-      ctx.font = 'bold 18px sans-serif'
+      ctx.font = 'bold 20px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText('Control de Exposición', 300, 30)
+      ctx.fillText('Control de Exposición', 350, 30)
 
-      // Sobreexposición
-      ctx.font = 'bold 14px sans-serif'
+      ctx.font = 'bold 16px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'left'
-      ctx.fillText('Píxeles Quemados (Sobreexposición)', 50, 80)
+      ctx.fillText('Píxeles Quemados (Sobreexposición)', 60, 80)
 
       const overPercent = overexposed * 100
       ctx.textAlign = 'right'
-      ctx.fillText(`${overPercent.toFixed(2)}%`, 550, 80)
+      ctx.fillText(`${overPercent.toFixed(2)}%`, 640, 80)
 
-      const barWidth = 450
-      const barHeight = 35
+      const barWidth = 550
+      const barHeight = 45
 
       ctx.fillStyle = '#f0f0f0'
-      ctx.fillRect(50, 90, barWidth, barHeight)
+      ctx.fillRect(60, 95, barWidth, barHeight)
 
       const overFillWidth = (overPercent / 10) * barWidth
       ctx.fillStyle = '#B71C1C'
-      ctx.fillRect(50, 90, Math.min(overFillWidth, barWidth), barHeight)
+      ctx.fillRect(60, 95, Math.min(overFillWidth, barWidth), barHeight)
 
       ctx.strokeStyle = '#ccc'
       ctx.lineWidth = 1
-      ctx.strokeRect(50, 90, barWidth, barHeight)
+      ctx.strokeRect(60, 95, barWidth, barHeight)
 
-      // Subexposición
-      ctx.font = 'bold 14px sans-serif'
+      ctx.font = 'bold 16px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'left'
-      ctx.fillText('Píxeles Perdidos (Subexposición)', 50, 170)
+      ctx.fillText('Píxeles Perdidos (Subexposición)', 60, 195)
 
       const underPercent = underexposed * 100
       ctx.textAlign = 'right'
-      ctx.fillText(`${underPercent.toFixed(2)}%`, 550, 170)
+      ctx.fillText(`${underPercent.toFixed(2)}%`, 640, 195)
 
       ctx.fillStyle = '#f0f0f0'
-      ctx.fillRect(50, 180, barWidth, barHeight)
+      ctx.fillRect(60, 210, barWidth, barHeight)
 
       const underFillWidth = (underPercent / 10) * barWidth
       ctx.fillStyle = '#212121'
-      ctx.fillRect(50, 180, Math.min(underFillWidth, barWidth), barHeight)
+      ctx.fillRect(60, 210, Math.min(underFillWidth, barWidth), barHeight)
 
       ctx.strokeStyle = '#ccc'
       ctx.lineWidth = 1
-      ctx.strokeRect(50, 180, barWidth, barHeight)
+      ctx.strokeRect(60, 210, barWidth, barHeight)
 
-      // Interpretación
-      ctx.font = '12px sans-serif'
+      ctx.font = '14px sans-serif'
       ctx.fillStyle = MID_GRAY
       ctx.textAlign = 'center'
       let interpretation = ''
@@ -1125,7 +1227,7 @@ async function generateExposureGauge(
       } else {
         interpretation = '✓ Exposición controlada correctamente'
       }
-      ctx.fillText(interpretation, 300, 250)
+      ctx.fillText(interpretation, 350, 295)
 
       setTimeout(() => {
         const imgData = canvas.toDataURL('image/png')
@@ -1139,7 +1241,7 @@ async function generateExposureGauge(
 }
 
 /**
- * Donut de movimientos de cámara (COLORES ROJO/NEGRO)
+ * Donut de movimientos de cámara
  */
 async function generateCameraMovementDonutChart(
     distribution: Record<string, number>
@@ -1147,8 +1249,8 @@ async function generateCameraMovementDonutChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 500
-      canvas.height = 500
+      canvas.width = 700
+      canvas.height = 700
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -1165,16 +1267,15 @@ async function generateCameraMovementDonutChart(
         return
       }
 
-      // NUEVA PALETA: Rojo y Negro
       const CAMERA_COLORS = {
-        "Estático": "#FFFFFF",
-        "Static": "#FFFFFF",
+        "Estático": "#9E9E9E",
+        "Static": "#9E9E9E",
         "Pan": "#E50914",
         "Tilt": "#B71C1C",
         "Zoom": "#000000",
         "Tracking": "#424242",
         "Dolly": "#757575",
-        "Crane": "#9E9E9E"
+        "Crane": "#616161"
       }
 
       const chart = new Chart(ctx, {
@@ -1186,7 +1287,7 @@ async function generateCameraMovementDonutChart(
             backgroundColor: movements.map(([name]) =>
                 CAMERA_COLORS[name as keyof typeof CAMERA_COLORS] || "#757575"
             ),
-            borderWidth: 3,
+            borderWidth: 5,
             borderColor: '#fff'
           }]
         },
@@ -1197,10 +1298,10 @@ async function generateCameraMovementDonutChart(
             legend: {
               position: 'bottom',
               labels: {
-                font: { size: 12, weight: 'bold' },
+                font: { size: 16, weight: 'bold' },
                 color: BLACK,
-                padding: 15,
-                boxWidth: 20
+                padding: 20,
+                boxWidth: 30
               }
             },
             tooltip: { enabled: false }
@@ -1222,8 +1323,8 @@ async function generateCameraMovementDonutChart(
                 const movementName = movements[index][0]
                 const bgColor = CAMERA_COLORS[movementName as keyof typeof CAMERA_COLORS]
 
-                ctx.fillStyle = (bgColor === "#FFFFFF" || bgColor === "#9E9E9E") ? 'black' : 'white'
-                ctx.font = 'bold 14px sans-serif'
+                ctx.fillStyle = (bgColor === "#9E9E9E" || bgColor === "#757575") ? 'black' : 'white'
+                ctx.font = 'bold 18px sans-serif'
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'middle'
                 ctx.fillText(`${value.toFixed(1)}%`, x, y)
@@ -1254,8 +1355,8 @@ async function generateCameraTimelineChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 700
-      canvas.height = 300
+      canvas.width = 1000  // Aumentado de 900 a 1000
+      canvas.height = 500   // Aumentado de 450 a 500
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -1268,10 +1369,9 @@ async function generateCameraTimelineChart(
         return
       }
 
-      // Agrupar por intervalos de 10 segundos (asumiendo 30 fps)
       const intervals: Record<number, Record<string, number>> = {}
       timeline.forEach(item => {
-        const timestamp = item.frame / 30 // convertir frame a segundos
+        const timestamp = item.frame / 30
         const interval = Math.floor(timestamp / 10) * 10
         if (!intervals[interval]) intervals[interval] = {}
         intervals[interval][item.type] = (intervals[interval][item.type] || 0) + 1
@@ -1285,14 +1385,14 @@ async function generateCameraTimelineChart(
       ).slice(0, 5)
 
       const TIMELINE_COLORS = {
-        "Estático": "#FFFFFF",
-        "Static": "#FFFFFF",
+        "Estático": "#9E9E9E",
+        "Static": "#9E9E9E",
         "Pan": "#E50914",
         "Tilt": "#B71C1C",
         "Zoom": "#000000",
         "Tracking": "#424242",
         "Dolly": "#757575",
-        "Crane": "#9E9E9E"
+        "Crane": "#616161"
       }
 
       const datasets = movementTypes.map(type => ({
@@ -1312,17 +1412,19 @@ async function generateCameraTimelineChart(
             legend: {
               position: 'top',
               labels: {
-                font: { size: 10, weight: 'bold' },
+                font: { size: 15, weight: 'bold' },  // Aumentado de 14 a 15
                 color: BLACK,
-                boxWidth: 15
+                boxWidth: 28,  // Aumentado de 25 a 28
+                padding: 18    // Aumentado de 15 a 18
               }
             },
             tooltip: { enabled: false },
             title: {
               display: true,
               text: 'Evolución Temporal de Movimientos',
-              font: { size: 14, weight: 'bold' },
-              color: BLACK
+              font: { size: 20, weight: 'bold' },  // Aumentado de 18 a 20
+              color: BLACK,
+              padding: { bottom: 18 }  // Aumentado de 15 a 18
             }
           },
           scales: {
@@ -1330,7 +1432,7 @@ async function generateCameraTimelineChart(
               stacked: true,
               grid: { display: false },
               ticks: {
-                font: { size: 9 },
+                font: { size: 12 },  // Aumentado de 11 a 12
                 color: MID_GRAY,
                 maxRotation: 45,
                 minRotation: 45
@@ -1338,9 +1440,9 @@ async function generateCameraTimelineChart(
             },
             y: {
               stacked: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
+              grid: { color: 'rgba(0,0,0,0.06)' },
               ticks: {
-                font: { size: 10 },
+                font: { size: 13 },  // Aumentado de 12 a 13
                 color: MID_GRAY
               }
             }
@@ -1396,7 +1498,6 @@ function loadImage(url: string): Promise<string | null> {
       if (url.includes('image.tmdb.org')) {
         const encodedUrl = encodeURIComponent(url)
         finalUrl = `${API_URL}/image-proxy?url=${encodedUrl}`
-        console.log(`🔄 Usando proxy TMDB: ${finalUrl}`)
       } else if (!url.startsWith("http")) {
         finalUrl = `${API_URL}${url}`
       }
@@ -1417,23 +1518,15 @@ export async function generateNetflixPDF(
     posterUrl?: string
 ) {
   try {
-    console.log("🎬 Generando PDF estilo Netflix...")
-    console.log("📊 Datos del reporte recibidos:", {
-      title: report.title,
-      hasHistogram: !!report.histogram_data,
-      hasTimeline: !!report.camera_timeline,
-      hasComposition: !!report.composition_data,
-      hasShotTypes: !!report.shot_types_summary,
-      hasEmotions: !!report.emotions_summary,
-      hasColorAnalysis: !!report.color_analysis_summary,
-      hasLighting: !!report.lighting_summary,
-      hasCamera: !!report.camera_summary,
-      actorsCount: report.detectedActors?.length || 0
-    })
+    console.log("🎬 Generando PDF estilo Netflix v2.0...")
 
-    // Validación básica
     if (!report || !report.title) {
       throw new Error('El reporte debe tener al menos un título')
+    }
+
+    const logoImage = await loadLogo()
+    if (!logoImage) {
+      console.warn('⚠️ No se pudo cargar el logo desde /logo.png')
     }
 
     const doc = new jsPDF({
@@ -1446,43 +1539,72 @@ export async function generateNetflixPDF(
     const pageHeight = doc.internal.pageSize.getHeight()
     let yPos = 20
     let pageNumber = 0
-    const totalPages = 8
+    const totalPages = 7
 
     // ==================== FUNCIONES AUXILIARES ====================
 
     function addPage() {
       doc.addPage()
       pageNumber++
-      yPos = 20
+      yPos = 43  // Dejar espacio para header (18mm) + recuadro negro título (12mm) + margen (13mm)
     }
 
-    function addHeader() {
-      doc.setFillColor(...colors.red)
-      doc.rect(0, 0, pageWidth, 15, "F")
-      doc.setFontSize(18)
-      doc.setFont("helvetica", "bold")
-      doc.setTextColor(255, 255, 255)
-      doc.text("CVFlix", 15, 10)
+    async function addHeader(title: string, logoImage?: string | null) {
+      // Fondo negro de la cabecera (siempre presente)
+      doc.setFillColor(...colors.black)
+      doc.rect(0, 0, pageWidth, 18, "F")
+
+      if (logoImage) {
+        const logoWidth = 35
+        const logoHeight = 12
+        const logoX = (pageWidth - logoWidth) / 2  // Centrado
+        const logoY = 3
+
+        try {
+          doc.addImage(logoImage, "PNG", logoX, logoY, logoWidth, logoHeight, undefined, "FAST")
+        } catch (error) {
+          console.error("Error añadiendo logo:", error)
+          doc.setFontSize(16)
+          doc.setFont("helvetica", "bold")
+          doc.setTextColor(255, 255, 255)
+          doc.text("CVFlix", pageWidth / 2, 12, { align: "center" })
+        }
+      } else {
+        doc.setFontSize(16)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(255, 255, 255)
+        doc.text("CVFlix", pageWidth / 2, 12, { align: "center" })
+      }
+
+      // Si hay título de sección, crear recuadro negro debajo del header
+      if (title) {
+        doc.setFillColor(...colors.black)
+        doc.rect(20, 25, pageWidth - 40, 12, "F")
+
+        doc.setFontSize(13)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(255, 255, 255)
+        doc.text(title, pageWidth / 2, 32, { align: "center" })
+      }
     }
 
     function addFooter(page: number, total: number) {
+      const currentDate = new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+
       doc.setFontSize(9)
       doc.setTextColor(...colors.mediumGray)
       doc.setFont("helvetica", "normal")
+      doc.text(currentDate, 15, pageHeight - 10)
       doc.text(
           `Página ${page} de ${total}`,
-          pageWidth / 2,
+          pageWidth - 15,
           pageHeight - 10,
-          { align: "center" }
+          { align: "right" }
       )
-    }
-
-    function addSectionTitle(title: string) {
-      doc.setFontSize(14)
-      doc.setFont("helvetica", "bold")
-      doc.setTextColor(...colors.darkRed)
-      doc.text(title, 15, yPos)
-      yPos += 10
     }
 
     // ==================== PÁGINA 1: PORTADA ====================
@@ -1491,70 +1613,80 @@ export async function generateNetflixPDF(
     doc.setFillColor(...colors.black)
     doc.rect(0, 0, pageWidth, pageHeight, "F")
 
-    doc.setFillColor(...colors.red)
-    doc.rect(0, 0, pageWidth, 15, "F")
-    doc.setFontSize(24)
-    doc.setFont("helvetica", "bold")
-    doc.setTextColor(255, 255, 255)
-    doc.text("CVFlix", 15, 10)
+    if (logoImage) {
+      const logoWidth = 50
+      const logoHeight = 17
+      const logoX = (pageWidth - logoWidth) / 2
+      const logoY = 20
 
-    // Cargar y mostrar el poster si existe
+      try {
+        doc.addImage(logoImage, "PNG", logoX, logoY, logoWidth, logoHeight, undefined, "FAST")
+      } catch (error) {
+        doc.setFontSize(28)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(255, 255, 255)
+        doc.text("CVFlix", pageWidth / 2, 30, { align: "center" })
+      }
+    }
+
     let posterImage: string | null = null
     if (posterUrl || report.poster_url) {
       const posterUrlToUse = posterUrl || report.poster_url
       if (posterUrlToUse) {
-        console.log(`🎬 Cargando poster: ${posterUrlToUse}`)
         posterImage = await loadImage(posterUrlToUse)
       }
     }
 
-    // Si hay poster, ajustar el layout
     if (posterImage) {
-      const posterWidth = 60
-      const posterHeight = 90
+      const posterWidth = 80
+      const posterHeight = 120
       const posterX = (pageWidth - posterWidth) / 2
-      const posterY = 30
+      const posterY = 50
 
       try {
         doc.addImage(posterImage, "JPEG", posterX, posterY, posterWidth, posterHeight, undefined, "FAST")
         doc.setDrawColor(255, 255, 255)
         doc.setLineWidth(0.5)
         doc.rect(posterX, posterY, posterWidth, posterHeight)
-        yPos = posterY + posterHeight + 20
+        yPos = posterY + posterHeight + 15
       } catch (error) {
-        console.error("❌ Error agregando poster:", error)
-        yPos = pageHeight / 2 - 40
+        yPos = pageHeight / 2 - 20
       }
     } else {
-      yPos = pageHeight / 2 - 40
+      yPos = pageHeight / 2 - 30
     }
 
-    doc.setFontSize(32)
+    yPos += 15;
+    doc.setFontSize(36)
     doc.setFont("helvetica", "bold")
     doc.setTextColor(255, 255, 255)
     const titleLines = doc.splitTextToSize(report.title, pageWidth - 40)
     doc.text(titleLines, pageWidth / 2, yPos, { align: "center" })
     yPos += titleLines.length * 12
 
-    doc.setFontSize(16)
+    doc.setFontSize(18)
     doc.setFont("helvetica", "normal")
     doc.setTextColor(...colors.lightGray)
     doc.text("Análisis Cinematográfico Completo", pageWidth / 2, yPos + 10, { align: "center" })
 
+    doc.setFillColor(40, 40, 40)
+    doc.roundedRect(30, yPos + 20, pageWidth - 60, 30, 3, 3, "F")
+
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(255, 255, 255)
+    doc.text("RESUMEN DEL ANÁLISIS", pageWidth / 2, yPos + 30, { align: "center" })
+
     doc.setFontSize(11)
     doc.setFont("helvetica", "normal")
-    doc.text(`Duración: ${report.duration}`, 30, yPos + 20)
-    doc.text(`Frames: ${report.shots}`, 30, yPos + 27)
-    doc.text(`Actores: ${report.detectedActors?.length || 0}`, 30, yPos + 34)
-
-    addFooter(pageNumber + 1, totalPages)
+    doc.text(`Duración: ${report.duration}`, 40, yPos + 38)
+    doc.text(`Frames: ${report.shots}`, 40, yPos + 44)
+    doc.text(`Actores: ${report.detectedActors?.length || 0}`, pageWidth - 40, yPos + 38, { align: "right" })
 
     // ==================== PÁGINA 2: ACTORES Y PLANOS ====================
     console.log("📄 Generando página 2: Actores y Planos...")
     addPage()
-    addHeader()
-
-    addSectionTitle("ACTORES/ACTRICES RECONOCID@S")
+    await addHeader("ACTORES/ACTRICES RECONOCID@S", logoImage)
 
     if (report.detectedActors && report.detectedActors.length > 0) {
       const actorsToShow = report.detectedActors.slice(0, 6)
@@ -1563,19 +1695,19 @@ export async function generateNetflixPDF(
       )
 
       for (let i = 0; i < actorsToShow.length; i++) {
-        if (yPos > pageHeight - 30) break
+        if (yPos > pageHeight - 35) break
 
         const actor = actorsToShow[i]
 
         if (i % 2 === 0) {
-          doc.setFillColor(245, 245, 245)
-          doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, "F")
+          doc.setFillColor(248, 248, 248)
+          doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, "F")
         }
 
         const actorImg = actorImages[i]
         if (actorImg) {
           try {
-            doc.addImage(actorImg, "JPEG", 18, yPos + 2, 14, 14, undefined, "FAST")
+            doc.addImage(actorImg, "JPEG", 18, yPos + 2, 16, 16, undefined, "FAST")
           } catch (error) {
             console.error("Error agregando imagen de actor:", error)
           }
@@ -1589,63 +1721,56 @@ export async function generateNetflixPDF(
         ]
         const selectedColor = badgeColors[Math.min(i, 3)]
         doc.setFillColor(selectedColor[0], selectedColor[1], selectedColor[2])
-        doc.circle(36, yPos + 9, 2.5, "F")
+        doc.circle(38, yPos + 10, 3, "F")
         doc.setTextColor(255, 255, 255)
-        doc.setFontSize(7)
+        doc.setFontSize(8)
         doc.setFont("helvetica", "bold")
-        doc.text(`${i + 1}`, 36, yPos + 10, { align: "center" })
+        doc.text(`${i + 1}`, 38, yPos + 11, { align: "center" })
 
         doc.setTextColor(0, 0, 0)
-        doc.setFontSize(10)
+        doc.setFontSize(11)
         doc.setFont("helvetica", "bold")
-        doc.text(actor.nombre, 42, yPos + 7)
+        doc.text(actor.nombre, 45, yPos + 8)
 
         doc.setTextColor(117, 117, 117)
-        doc.setFontSize(8)
+        doc.setFontSize(9)
         doc.setFont("helvetica", "normal")
-        doc.text(actor.personaje, 42, yPos + 12)
+        doc.text(actor.personaje, 45, yPos + 14)
 
         doc.setTextColor(183, 28, 28)
-        doc.setFontSize(11)
+        doc.setFontSize(12)
         doc.setFont("helvetica", "bold")
         const similitud = (actor.similitud !== undefined && actor.similitud !== null)
             ? actor.similitud.toFixed(0)
             : '0'
-        doc.text(`${similitud}%`, pageWidth - 20, yPos + 10, { align: "right" })
+        doc.text(`${similitud}%`, pageWidth - 20, yPos + 11, { align: "right" })
 
-        yPos += 20
+        yPos += 22
       }
-      yPos += 10
-    } else {
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No se detectaron actores en este análisis", 15, yPos)
-      yPos += 10
+      yPos += 16
     }
 
-    // Gráfico de planos (SIN EJES)
     if (report.shot_types_summary?.distribution) {
-      if (yPos > pageHeight - 80) {
+      if (yPos > pageHeight - 100) {
         addFooter(pageNumber + 1, totalPages)
         addPage()
-        addHeader()
-      }
+        await addHeader("PLANOS CINEMATOGRÁFICOS", logoImage)
+      } else {
+        // Añadir recuadro negro para nueva sección
+        doc.setFillColor(...colors.black)
+        doc.rect(20, yPos, pageWidth - 40, 12, "F")
 
-      addSectionTitle("PLANOS CINEMATOGRÁFICOS")
+        doc.setFontSize(13)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(255, 255, 255)
+        doc.text("PLANOS CINEMATOGRÁFICOS", pageWidth / 2, yPos + 7, { align: "center" })
+        yPos += 18
+      }
 
       const shotChart = await generateShotDistributionChart(report.shot_types_summary.distribution)
       if (shotChart) {
-        doc.addImage(shotChart, "PNG", 15, yPos, pageWidth - 30, 70, undefined, "FAST")
-      } else {
-        doc.setFontSize(10)
-        doc.setTextColor(...colors.mediumGray)
-        doc.text("No hay datos suficientes para mostrar distribución de planos", 15, yPos)
+        doc.addImage(shotChart, "PNG", 15, yPos, pageWidth - 30, 83, undefined, "FAST")
       }
-    } else {
-      addSectionTitle("PLANOS CINEMATOGRÁFICOS")
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de tipos de plano en este análisis", 15, yPos)
     }
 
     addFooter(pageNumber + 1, totalPages)
@@ -1653,25 +1778,23 @@ export async function generateNetflixPDF(
     // ==================== PÁGINA 3: EMOCIONES ====================
     console.log("📄 Generando página 3: Emociones...")
     addPage()
-    addHeader()
-
-    addSectionTitle("DETECCIÓN DE EMOCIONES")
+    await addHeader("DETECCIÓN DE EMOCIONES", logoImage)
 
     if (report.emotions_summary?.distribution) {
-      // DONUT (arriba)
+      // DONUT (arriba) - 110x110mm
       const emotionDonut = await generateEmotionDonutChart(report.emotions_summary.distribution)
       if (emotionDonut) {
-        doc.addImage(emotionDonut, "PNG", (pageWidth - 85) / 2, yPos, 85, 85, undefined, "FAST")
-        yPos += 95
+        doc.addImage(emotionDonut, "PNG", (pageWidth - 110) / 2, yPos, 110, 110, undefined, "FAST")
+        yPos += 118
       }
 
-      // GAUGE (abajo con margen)
+      // GAUGE (abajo) - 110x110mm
       const emotionGauge = await generateEmotionGaugeChart(
           report.emotions_summary.most_common || "Neutral",
           report.emotions_summary.distribution[report.emotions_summary.most_common || "Neutral"] || 0
       )
       if (emotionGauge) {
-        doc.addImage(emotionGauge, "PNG", (pageWidth - 85) / 2, yPos, 85, 85, undefined, "FAST")
+        doc.addImage(emotionGauge, "PNG", (pageWidth - 110) / 2, yPos, 110, 110, undefined, "FAST")
       }
     } else {
       doc.setFontSize(10)
@@ -1681,110 +1804,71 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 4: COLOR (histograma y paleta) ====================
+    // ==================== PÁGINA 4: COLOR ====================
     console.log("📄 Generando página 4: Análisis de Color...")
     addPage()
-    addHeader()
+    await addHeader("ANÁLISIS DE COLOR", logoImage)
 
-    addSectionTitle("ANÁLISIS DE COLOR")
-
-// Histograma RGB
     if (report.histogram_data) {
       const histogram = await generateColorHistogramChart(report.histogram_data)
       if (histogram) {
-        doc.addImage(histogram, "PNG", 15, yPos, pageWidth - 30, 50, undefined, "FAST")
-        yPos += 60
+        doc.addImage(histogram, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
+        yPos += 90
       }
-    } else {
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de histograma RGB", 15, yPos)
-      yPos += 10
     }
 
-// ✅ PARCHEADO: Paleta de colores - Validación mejorada
     if (report.color_analysis_summary?.global_palette && Array.isArray(report.color_analysis_summary.global_palette)) {
-      console.log("🎨 DEBUG Paleta COMPLETA:", report.color_analysis_summary.global_palette)
-      console.log("🎨 Primer color estructura:", JSON.stringify(report.color_analysis_summary.global_palette[0], null, 2))
-
       const colorsPalette = report.color_analysis_summary.global_palette.slice(0, 5)
 
-      // Filtrar solo colores válidos (más tolerante)
       const validColors = colorsPalette.filter(c => {
-        console.log("🔍 Validando color:", c)
         const hasHex = c && typeof c.hex === 'string' && c.hex.length > 0
         const hasRgb = c && Array.isArray(c.rgb) && c.rgb.length >= 3
-        // ✅ CAMBIO CRÍTICO: Usar percentage primero
-        const hasFreq = c && (typeof c.percentage === 'number' || typeof c.frequency === 'number' || typeof (c as any).appearances === 'number')
-        console.log("  - hasHex:", hasHex, "| hasRgb:", hasRgb, "| hasFreq:", hasFreq)
+        const hasFreq = c && (typeof c.percentage === 'number' || typeof c.frequency === 'number')
         return hasHex && hasRgb && hasFreq
       })
 
-      console.log(`✅ Colores válidos en paleta: ${validColors.length}/${colorsPalette.length}`)
-
       if (validColors.length > 0) {
-        doc.setFontSize(12)
+        doc.setFontSize(13)
         doc.setFont("helvetica", "bold")
         doc.setTextColor(0, 0, 0)
         doc.text("Paleta de Colores Dominantes", 15, yPos)
-        yPos += 8
+        yPos += 10
 
-        // Ajustar ancho según colores disponibles
-        const boxWidth = (pageWidth - 40) / validColors.length
-        const boxHeight = 25
+        const totalWidth = pageWidth - 50  // Más margen
+        const boxWidth = totalWidth / validColors.length
+        const boxHeight = 30
 
         validColors.forEach((color, index) => {
-          const x = 15 + index * boxWidth
+          const x = 25 + index * boxWidth  // Más margen izquierdo
 
-          // Dibujar cuadrado de color
           doc.setFillColor(color.rgb[0], color.rgb[1], color.rgb[2])
-          doc.rect(x, yPos, boxWidth - 2, boxHeight, "F")
+          doc.rect(x, yPos, boxWidth - 8, boxHeight, "F")  // Aumentado espaciado de 3 a 8
 
-          // Borde
           doc.setDrawColor(200, 200, 200)
           doc.setLineWidth(0.5)
-          doc.rect(x, yPos, boxWidth - 2, boxHeight)
+          doc.rect(x, yPos, boxWidth - 8, boxHeight)
 
-          // HEX en negrita
           doc.setFont("helvetica", "bold")
-          doc.setFontSize(9)
+          doc.setFontSize(10)
           doc.setTextColor(0, 0, 0)
-          doc.text(color.hex.toUpperCase(), x + (boxWidth - 2) / 2, yPos + boxHeight + 6, { align: "center" })
+          doc.text(color.hex.toUpperCase(), x + (boxWidth - 8) / 2, yPos + boxHeight + 7, { align: "center" })
 
-          // ✅ CAMBIO CRÍTICO: Porcentaje - usar percentage primero
-          const freq = color.percentage || color.frequency || (color as any).appearances || 0
+          const freq = color.percentage || color.frequency || 0
           doc.setFont("helvetica", "normal")
-          doc.setFontSize(8)
+          doc.setFontSize(9)
           doc.setTextColor(117, 117, 117)
-          doc.text(`${freq.toFixed(1)}%`, x + (boxWidth - 2) / 2, yPos + boxHeight + 11, { align: "center" })
+          doc.text(`${freq.toFixed(1)}%`, x + (boxWidth - 8) / 2, yPos + boxHeight + 13, { align: "center" })
         })
-
-        yPos += boxHeight + 20
-      } else {
-        console.warn("⚠️ Todos los colores fueron rechazados por validación:", colorsPalette)
-        doc.setFontSize(10)
-        doc.setTextColor(...colors.mediumGray)
-        doc.text("Datos de paleta incompletos", 15, yPos)
-        yPos += 10
       }
-    } else {
-      console.warn("⚠️ No se encontró global_palette en color_analysis_summary")
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de paleta de colores", 15, yPos)
-      yPos += 10
     }
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 5: COLOR SCHEME Y TEMPERATURA ====================
-    console.log("📄 Generando página 5: Análisis Cromático Avanzado...")
+    // ==================== PÁGINA 5: ANÁLISIS CROMÁTICO + COMPOSICIÓN ====================
+    console.log("📄 Generando página 5: Análisis Cromático y Composición...")
     addPage()
-    addHeader()
+    await addHeader("ANÁLISIS CROMÁTICO AVANZADO", logoImage)
 
-    addSectionTitle("ANÁLISIS CROMÁTICO AVANZADO")
-
-    // Color Scheme Analysis
     if (report.color_analysis_summary?.most_common_scheme) {
       const schemeChart = await generateColorSchemeChart(
           report.color_analysis_summary.most_common_scheme,
@@ -1792,17 +1876,11 @@ export async function generateNetflixPDF(
           report.color_analysis_summary.global_palette || []
       )
       if (schemeChart) {
-        doc.addImage(schemeChart, "PNG", 15, yPos, pageWidth - 30, 60, undefined, "FAST")
-        yPos += 70
+        doc.addImage(schemeChart, "PNG", 15, yPos, pageWidth - 30, 67, undefined, "FAST")
+        yPos += 77
       }
-    } else {
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de esquema cromático", 15, yPos)
-      yPos += 10
     }
 
-    // Color Temperature Gauge
     if (report.color_analysis_summary?.most_common_temperature) {
       const tempValue = report.color_analysis_summary.most_common_temperature === "Cálido" ? 0.5 :
           report.color_analysis_summary.most_common_temperature === "Frío" ? -0.5 : 0
@@ -1812,24 +1890,22 @@ export async function generateNetflixPDF(
         value: tempValue
       })
       if (tempChart) {
-        doc.addImage(tempChart, "PNG", 15, yPos, pageWidth - 30, 60, undefined, "FAST")
+        doc.addImage(tempChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")  // Reducido de 67 a 58
+        yPos += 60
       }
-    } else {
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de temperatura de color", 15, yPos)
     }
 
-    addFooter(pageNumber + 1, totalPages)
-
-    // ==================== PÁGINA 6: COMPOSICIÓN ====================
-    console.log("📄 Generando página 6: Composición Visual...")
-    addPage()
-    addHeader()
-
-    addSectionTitle("COMPOSICIÓN VISUAL")
-
     if (report.composition_summary) {
+      // Añadir recuadro negro para sección de composición
+      doc.setFillColor(...colors.black)
+      doc.rect(20, yPos, pageWidth - 40, 12, "F")
+
+      doc.setFontSize(13)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(255, 255, 255)
+      doc.text("COMPOSICIÓN VISUAL", pageWidth / 2, yPos + 7, { align: "center" })
+      yPos += 10
+
       const compositionData = {
         rule_of_thirds: (report.composition_summary.avg_rule_of_thirds || 0) / 100,
         symmetry: (report.composition_summary.avg_symmetry || 0) / 100,
@@ -1839,62 +1915,56 @@ export async function generateNetflixPDF(
 
       const radarChart = await generateCompositionRadarChart(compositionData)
       if (radarChart) {
-        const chartSize = 80
+        const chartSize = 90
         doc.addImage(radarChart, "PNG", (pageWidth - chartSize) / 2, yPos, chartSize, chartSize, undefined, "FAST")
       }
-    } else {
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de composición en este análisis", 15, yPos)
     }
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 7: ILUMINACIÓN ====================
-    console.log("📄 Generando página 7: Análisis de Iluminación...")
+    // ==================== PÁGINA 6: ILUMINACIÓN ====================
+    console.log("📄 Generando página 6: Análisis de Iluminación...")
     addPage()
-    addHeader()
+    await addHeader("ANÁLISIS DE ILUMINACIÓN", logoImage)
 
-    addSectionTitle("ANÁLISIS DE ILUMINACIÓN")
-
-    // 1. Zonas de luz (heatmap)
-    if (report.lighting_summary?.exposure) {
+    // Gráfico 1: Zonas de iluminación
+    if (report.lighting_summary?.exposure?.zones) {
       const zonesChart = await generateLightingZonesChart(report.lighting_summary.exposure.zones)
       if (zonesChart) {
-        doc.addImage(zonesChart, "PNG", 15, yPos, pageWidth - 30, 52, undefined, "FAST")
-        yPos += 58
+        doc.addImage(zonesChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
+        yPos += 68
       }
     } else if (report.lighting_summary) {
       const defaultZones = { shadows: 0.33, midtones: 0.34, highlights: 0.33 }
       const zonesChart = await generateLightingZonesChart(defaultZones)
       if (zonesChart) {
-        doc.addImage(zonesChart, "PNG", 15, yPos, pageWidth - 30, 52, undefined, "FAST")
-        yPos += 58
+        doc.addImage(zonesChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
+        yPos += 85
       }
     }
 
-    // 2. Tipos de iluminación
+    // Gráfico 2: Tipos de iluminación
     if (report.lighting_summary?.distribution) {
       const typesChart = await generateLightingTypesChart(report.lighting_summary.distribution)
       if (typesChart) {
-        doc.addImage(typesChart, "PNG", 15, yPos, pageWidth - 30, 52, undefined, "FAST")
-        yPos += 58
+        doc.addImage(typesChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
+        yPos += 85
       }
     }
 
-    // 3. Gauge de exposición
+    // Gráfico 3: Exposición
     if (report.lighting_summary?.exposure) {
       const exposureChart = await generateExposureGauge(
-          report.lighting_summary.exposure.overexposed_pixels,
-          report.lighting_summary.exposure.underexposed_pixels
+          report.lighting_summary.exposure.overexposed_pixels || 0.01,
+          report.lighting_summary.exposure.underexposed_pixels || 0.01
       )
       if (exposureChart) {
-        doc.addImage(exposureChart, "PNG", 15, yPos, pageWidth - 30, 52, undefined, "FAST")
+        doc.addImage(exposureChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
       }
     } else if (report.lighting_summary) {
       const exposureChart = await generateExposureGauge(0.01, 0.01)
       if (exposureChart) {
-        doc.addImage(exposureChart, "PNG", 15, yPos, pageWidth - 30, 52, undefined, "FAST")
+        doc.addImage(exposureChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
       }
     }
 
@@ -1906,30 +1976,14 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 8: MOVIMIENTOS CÁMARA ====================
-    console.log("📄 Generando página 8: Movimientos de Cámara...")
+    // ==================== PÁGINA 7: MOVIMIENTOS CÁMARA ====================
+    console.log("📄 Generando página 7: Movimientos de Cámara...")
     addPage()
-    addHeader()
+    await addHeader("MOVIMIENTOS DE CÁMARA", logoImage)
 
-    addSectionTitle("MOVIMIENTOS DE CÁMARA")
-
-    // ✅ PARCHEADO: Usar movement_counts en lugar de distribution
     const cameraDistribution = (report.camera_summary as any)?.movement_counts || report.camera_summary?.distribution
 
-    console.log("📹 DEBUG Camera Summary:", {
-      exists: !!report.camera_summary,
-      hasDistribution: !!report.camera_summary?.distribution,
-      hasMovementCounts: !!(report.camera_summary as any)?.movement_counts,
-      cameraDistribution: cameraDistribution,
-      distributionKeys: cameraDistribution ? Object.keys(cameraDistribution) : [],
-      hasTimeline: !!report.camera_timeline,
-      timelineLength: report.camera_timeline?.length
-    })
-
     if (cameraDistribution && Object.keys(cameraDistribution).length > 0) {
-      console.log("✅ Generando gráficos de cámara con distribution:", cameraDistribution)
-
-      // Convertir counts a porcentajes si es necesario
       const total = Object.values(cameraDistribution).reduce((sum: number, val) => sum + (val as number), 0)
       const distributionPercent: Record<string, number> = {}
 
@@ -1937,39 +1991,22 @@ export async function generateNetflixPDF(
         distributionPercent[key] = ((value as number) / total) * 100
       }
 
-      console.log("📊 Distribución en porcentajes:", distributionPercent)
-
-      // DONUT (arriba)
       const cameraDonut = await generateCameraMovementDonutChart(distributionPercent)
       if (cameraDonut) {
-        doc.addImage(cameraDonut, "PNG", (pageWidth - 85) / 2, yPos, 85, 85, undefined, "FAST")
-        yPos += 95
-      } else {
-        console.warn("⚠️ No se pudo generar donut de cámara")
+        doc.addImage(cameraDonut, "PNG", (pageWidth - 110) / 2, yPos, 110, 110, undefined, "FAST")
+        yPos += 140
       }
 
-      // TIMELINE (abajo con margen)
       if (report.camera_timeline && Array.isArray(report.camera_timeline) && report.camera_timeline.length > 0) {
-        console.log(`✅ Timeline tiene ${report.camera_timeline.length} puntos`)
         const timeline = await generateCameraTimelineChart(report.camera_timeline)
         if (timeline) {
-          doc.addImage(timeline, "PNG", (pageWidth - 85) / 2, yPos, 85, 52, undefined, "FAST")
-        } else {
-          console.warn("⚠️ No se pudo generar timeline de cámara")
+          doc.addImage(timeline, "PNG", (pageWidth - 110) / 2, yPos, 110, 61, undefined, "FAST")  // Aumentado de 55 a 61
         }
-      } else {
-        console.warn("⚠️ Timeline vacío o inválido:", report.camera_timeline?.length || 0)
       }
-    } else {
-      console.error("❌ Camera summary sin distribución válida:", report.camera_summary)
-      doc.setFontSize(10)
-      doc.setTextColor(...colors.mediumGray)
-      doc.text("No hay datos de movimientos de cámara en este análisis", 15, yPos)
     }
 
     addFooter(pageNumber + 1, totalPages)
 
-    // Guardar
     const filename = `CVFlix - ${report.title}.pdf`
     doc.save(filename)
     console.log(`✅ PDF generado exitosamente: ${filename}`)

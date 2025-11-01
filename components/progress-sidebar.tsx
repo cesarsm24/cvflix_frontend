@@ -58,7 +58,7 @@ import type { ProcessingStep } from "@/lib/types"
  * sección para agrupación visual.
  */
 export const PROCESSING_STEPS: ProcessingStep[] = [
-    { label: "Cargando video", icon: "▶️", section: "Inicio" },
+    { label: "Cargando vídeo", icon: "▶️", section: "Inicio" },
     { label: "Obteniendo reparto de TMDB", icon: "🎬", section: "Datos" },
     { label: "Cargando fotos de actores", icon: "👥", section: "Datos" },
     { label: "Inicializando análisis", icon: "🎥", section: "Análisis" },

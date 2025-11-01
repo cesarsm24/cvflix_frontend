@@ -190,7 +190,7 @@ export function UploadForm({ onStartProcessingAction, disabled }: UploadFormProp
       video.onloadedmetadata = () => {
         window.URL.revokeObjectURL(video.src)
         if (video.duration > 30) {
-          setError(`El video dura ${Math.round(video.duration)}s. Por favor, sube un video de máximo 30 segundos.`)
+          setError(`El vídeo dura ${Math.round(video.duration)}s. Por favor, sube un vídeo de máximo 30 segundos.`)
           resolve(false)
         } else {
           setError(null)
@@ -199,7 +199,7 @@ export function UploadForm({ onStartProcessingAction, disabled }: UploadFormProp
       }
 
       video.onerror = () => {
-        setError("No se pudo cargar el video. Por favor, intenta con otro archivo.")
+        setError("No se pudo cargar el vídeo. Por favor, intenta con otro archivo.")
         resolve(false)
       }
 
@@ -239,7 +239,7 @@ export function UploadForm({ onStartProcessingAction, disabled }: UploadFormProp
           setVideoPreview(URL.createObjectURL(droppedFile))
         }
       } else {
-        setError("Por favor selecciona un archivo de video válido")
+        setError("Por favor selecciona un archivo de vídeo válido")
       }
     }
   }
@@ -266,7 +266,7 @@ export function UploadForm({ onStartProcessingAction, disabled }: UploadFormProp
           setVideoPreview(URL.createObjectURL(selectedFile))
         }
       } else {
-        setError("Por favor selecciona un archivo de video válido")
+        setError("Por favor selecciona un archivo de vídeo válido")
       }
     }
   }
@@ -385,7 +385,7 @@ export function UploadForm({ onStartProcessingAction, disabled }: UploadFormProp
                         </div>
                         <div className="text-center">
                           <p className="text-base font-medium text-foreground">
-                            Arrastra tu video aquí o haz clic para seleccionar
+                            Arrastra tu vídeo aquí o haz clic para seleccionar
                           </p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             Formatos soportados: MP4, MOV, AVI (máx. 30 segundos)
@@ -403,7 +403,7 @@ export function UploadForm({ onStartProcessingAction, disabled }: UploadFormProp
                             className="h-auto w-full"
                             style={{ maxHeight: "400px" }}
                         >
-                          Tu navegador no soporta la reproducción de video.
+                          Tu navegador no soporta la reproducción de vídeo.
                         </video>
                         <Button
                             type="button"

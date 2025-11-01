@@ -215,15 +215,15 @@ export function HelpButton() {
 
                     <div className="space-y-4 py-2">
                         <div className="space-y-3">
-                            {/* Paso 1: Carga de video */}
+                            {/* Paso 1: Carga de vídeo */}
                             <div className="flex gap-3">
                                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
                                     1
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-base mb-0.5">Sube tu video</h3>
+                                    <h3 className="font-semibold text-base mb-0.5">Sube tu vídeo</h3>
                                     <p className="text-muted-foreground text-sm text-justify">
-                                        Arrastra y suelta tu archivo de video o haz clic para seleccionarlo.
+                                        Arrastra y suelta tu archivo de vídeo o haz clic para seleccionarlo.
                                         Acepta formatos MP4, MOV, AVI y más. El tamaño máximo es de 500MB.
                                     </p>
                                 </div>
@@ -237,10 +237,10 @@ export function HelpButton() {
                                 <div>
                                     <h3 className="font-semibold text-base mb-0.5">Análisis automático</h3>
                                     <p className="text-muted-foreground text-sm text-justify">
-                                        Nuestro sistema procesará tu video analizando planos cinematográficos,
+                                        Nuestro sistema procesará tu vídeo analizando planos cinematográficos,
                                         movimientos de cámara, paleta de colores, iluminación, composición,
                                         e identificación de actores y personajes.
-                                        Este proceso puede tardar unos minutos dependiendo de la duración del video.
+                                        Este proceso puede tardar unos minutos dependiendo de la duración del vídeo.
                                     </p>
                                 </div>
                             </div>
@@ -253,7 +253,7 @@ export function HelpButton() {
                                 <div>
                                     <h3 className="font-semibold text-base mb-0.5">Visualiza los resultados</h3>
                                     <p className="text-muted-foreground text-sm text-justify">
-                                        Una vez completado el análisis, podrás ver tu video junto con un reporte
+                                        Una vez completado el análisis, podrás ver tu vídeo junto con un reporte
                                         detallado en el panel lateral. El reporte incluye estadísticas, gráficos
                                         y análisis técnico de tu contenido audiovisual.
                                     </p>
