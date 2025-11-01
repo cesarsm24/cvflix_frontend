@@ -1,0 +1,301 @@
+/**
+ * globals.css
+ * 
+ * Hoja de estilos globales de la aplicación. Define sistema de diseño dual (claro/oscuro)
+ * con tokens de color en espacio OKLCH, tipografías y geometrías reutilizables mediante
+ * variables CSS. Implementa tema claro por defecto con soporte para modo oscuro.
+ * 
+ * Author: César Sánchez Montes
+ * Course: Imagen Digital
+ * Year: 2025
+ * Version: 3.0.0
+ * 
+ * Dependencies:
+ *   - tailwindcss: Framework CSS utilitario
+ *   - tw-animate-css: Librería de animaciones para Tailwind
+ * 
+ * Usage:
+ *   Importado automáticamente en layout.tsx mediante:
+ *   import './globals.css'
+ * 
+ * Notes:
+ *   Sistema de color:
+ *     - Espacio de color: OKLCH (perceptualmente uniforme)
+ *     - Tema claro: Fondos claros (L: 0.97-1.0) con texto oscuro (L: 0.145)
+ *     - Tema oscuro: Fondos oscuros (L: 0.145-0.269) con texto claro (L: 0.985)
+ *     - Paleta de gráficos: 5 colores distintos para visualizaciones de datos
+ *   
+ *   Geometría:
+ *     - Radio base: 0.625rem (10px)
+ *     - Variantes: sm (-4px), md (-2px), lg (base), xl (+4px)
+ *   
+ *   Custom variant:
+ *     @custom-variant dark define selector para modo oscuro mediante clase .dark
+ *     aplicada al elemento raíz o ancestros.
+ */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/**
+ * Variables CSS del tema claro (por defecto).
+ * 
+ * Define tokens de diseño en :root utilizando espacio de color OKLCH para
+ * consistencia perceptual. Valores calculados para maximizar contraste y
+ * accesibilidad en modo claro.
+ */
+:root {
+  /**
+   * Colores base del tema claro.
+   * Background blanco puro, foreground casi negro para máximo contraste.
+   */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+
+  /**
+   * Componentes elevados.
+   * Cards y popovers con fondo blanco, idéntico a background.
+   */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  /**
+   * Estados principales.
+   * Primary con tono oscuro, secondary con gris muy claro.
+   */
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  /**
+   * Estados auxiliares.
+   * Muted y accent con tonos grises claros para jerarquía visual.
+   */
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  /**
+   * Estado destructivo.
+   * Rojo con saturación moderada para acciones de eliminación/error.
+   */
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+
+  /**
+   * Bordes y controles.
+   * Grises claros para separación sutil de elementos.
+   */
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  /**
+   * Paleta para gráficos.
+   * Cinco colores distintos con buena diferenciación visual para charts.
+   * Incluyen naranja, cyan, azul, amarillo-verde y amarillo.
+   */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /**
+   * Geometría.
+   * Radio de borde base para componentes redondeados.
+   */
+  --radius: 0.625rem;
+
+  /**
+   * Componentes de barra lateral.
+   * Fondos claros con texto oscuro, coherente con tema principal.
+   */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+/**
+ * Variables CSS del tema oscuro.
+ * 
+ * Redefinición de tokens para modo oscuro mediante clase .dark en elemento
+ * raíz o ancestro. Invierte luminosidades para fondos oscuros y texto claro.
+ */
+.dark {
+  /**
+   * Colores base del tema oscuro.
+   * Background casi negro, foreground casi blanco para alto contraste.
+   */
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+
+  /**
+   * Componentes elevados.
+   * Cards y popovers con mismo tono que background para consistencia.
+   */
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+
+  /**
+   * Estados principales.
+   * Primary claro sobre fondo oscuro, secondary con gris medio-oscuro.
+   */
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  /**
+   * Estados auxiliares.
+   * Muted y accent con tonos grises oscuros para jerarquía en modo oscuro.
+   */
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+
+  /**
+   * Estado destructivo.
+   * Rojo oscurecido para modo oscuro con foreground rojo más claro.
+   */
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+
+  /**
+   * Bordes y controles.
+   * Grises oscuros para separación sutil en fondos oscuros.
+   */
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+
+  /**
+   * Paleta para gráficos en modo oscuro.
+   * Colores ajustados para mantener visibilidad sobre fondos oscuros.
+   * Incluyen púrpura, verde, amarillo, magenta y naranja.
+   */
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+
+  /**
+   * Componentes de barra lateral en modo oscuro.
+   * Fondo oscuro con acentos en colores de gráficos.
+   */
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+/**
+ * Variables de tema para integración con Tailwind CSS.
+ * 
+ * Mapea variables CSS personalizadas a utilidades de Tailwind mediante directiva
+ * @theme inline. Permite usar tokens como bg-background, text-primary, etc.
+ */
+@theme inline {
+  /**
+   * Familias tipográficas.
+   * Geist para UI general, Geist Mono para código.
+   */
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+
+  /**
+   * Mapeo de colores semánticos.
+   * Expone todas las variables de color definidas en :root y .dark como
+   * utilidades de Tailwind con prefijo --color-.
+   */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /**
+   * Variantes de radio de borde.
+   * Calcula dinámicamente radios pequeños, medianos, grandes y extra grandes
+   * basados en el radio base.
+   */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /**
+   * Variables de barra lateral.
+   * Mapea tokens específicos de sidebar a utilidades de Tailwind.
+   */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/**
+ * Estilos base globales aplicados mediante layer de Tailwind.
+ * 
+ * Configura comportamiento predeterminado de elementos HTML y aplica
+ * clases utilitarias de Tailwind a selectores universales.
+ */
+@layer base {
+  /**
+   * Normalización universal.
+   * Aplica color de borde consistente y outline con opacidad al 50% para
+   * estados de focus visibles y accesibles.
+   */
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /**
+   * Estilos del body.
+   * Aplica colores de fondo y texto base definidos en variables del sistema.
+   * Estos valores cambian automáticamente con tema claro/oscuro.
+   */
+  body {
+    @apply bg-background text-foreground;
+  }
+}

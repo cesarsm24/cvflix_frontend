@@ -1,0 +1,211 @@
+/**
+ * globals.css
+ *
+ * Hoja de estilos globales de la aplicación. Define sistema de diseño basado en
+ * tokens de color, tipografías y geometrías reutilizables mediante variables CSS.
+ * Implementa paleta cromática inspirada en Netflix con tonos oscuros y acentos rojos.
+ *
+ * Author: César Sánchez Montes
+ * Course: Imagen Digital
+ * Year: 2025
+ * Version: 3.0.0
+ *
+ * Dependencies:
+ *   - tailwindcss: Framework CSS utilitario
+ *   - tw-animate-css: Librería de animaciones para Tailwind
+ *
+ * Usage:
+ *   Importado automáticamente en layout.tsx mediante:
+ *   import './globals.css'
+ *
+ * Notes:
+ *   Sistema de color:
+ *     - Espacio de color: OKLCH (perceptualmente uniforme)
+ *     - Paleta base: Tonos oscuros (L: 0.08-0.18) con foreground claro (L: 0.98)
+ *     - Acentos: Rojo cálido (H: 25°, C: 0.22-0.3) en distintas luminosidades
+ *     - Gradación para gráficos: 5 niveles de luminosidad del rojo base
+ *
+ *   Geometría:
+ *     - Radio base: 0.5rem (8px)
+ *     - Variantes: sm (-4px), md (-2px), lg (base), xl (+4px)
+ */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/**
+ * Variables CSS personalizadas en :root.
+ *
+ * Define tokens de diseño global utilizando espacio de color OKLCH para garantizar
+ * consistencia perceptual. Todas las variables siguen nomenclatura semántica
+ * (background, primary, muted) en lugar de valores literales.
+ */
+:root {
+  /**
+   * Colores base.
+   * Fondo profundo negro y texto blanco puro para máximo contraste.
+   */
+  --background: oklch(0.08 0 0);
+  --foreground: oklch(0.98 0 0);
+
+  /**
+   * Componentes elevados.
+   * Cards y popovers con tono ligeramente más claro que el fondo base.
+   */
+  --card: oklch(0.12 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.12 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+
+  /**
+   * Estados principales.
+   * Primary utiliza rojo característico con luminosidad media.
+   * Secondary mantiene tonos oscuros neutros.
+   */
+  --primary: oklch(0.55 0.22 25);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.18 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+
+  /**
+   * Estados auxiliares.
+   * Muted reduce intensidad visual. Accent y destructive utilizan rojo primario.
+   */
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.55 0.22 25);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+
+  /**
+   * Bordes y controles.
+   * Bordes e inputs con tono gris oscuro. Ring utiliza color primario para focus.
+   */
+  --border: oklch(0.22 0 0);
+  --input: oklch(0.22 0 0);
+  --ring: oklch(0.55 0.22 25);
+
+  /**
+   * Paleta para gráficos.
+   * Escala de 5 variaciones del rojo primario con luminosidades graduales.
+   * Útil para visualizaciones de datos con múltiples series.
+   */
+  --chart-1: oklch(0.55 0.22 25);
+  --chart-2: oklch(0.45 0.18 25);
+  --chart-3: oklch(0.35 0.14 25);
+  --chart-4: oklch(0.65 0.26 25);
+  --chart-5: oklch(0.75 0.3 25);
+
+  /**
+   * Geometría.
+   * Radio de borde base para componentes redondeados.
+   */
+  --radius: 0.5rem;
+
+  /**
+   * Componentes de barra lateral.
+   * Mantiene consistencia con paleta principal adaptada para navegación lateral.
+   */
+  --sidebar: oklch(0.12 0 0);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.55 0.22 25);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.18 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.22 0 0);
+  --sidebar-ring: oklch(0.55 0.22 25);
+}
+
+/**
+ * Variables de tema para integración con Tailwind CSS.
+ *
+ * Mapea variables CSS personalizadas a utilidades de Tailwind mediante directiva
+ * @theme inline. Permite usar tokens como bg-background, text-primary, etc.
+ */
+@theme inline {
+  /**
+   * Familias tipográficas.
+   * Geist para UI general, Geist Mono para código.
+   */
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+
+  /**
+   * Mapeo de colores semánticos.
+   * Expone todas las variables de color definidas en :root como utilidades
+   * de Tailwind con prefijo --color-.
+   */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /**
+   * Variantes de radio de borde.
+   * Calcula dinámicamente radios pequeños, medianos, grandes y extra grandes
+   * basados en el radio base.
+   */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /**
+   * Variables de barra lateral.
+   * Mapea tokens específicos de sidebar a utilidades de Tailwind.
+   */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/**
+ * Estilos base globales aplicados mediante layer de Tailwind.
+ *
+ * Configura comportamiento predeterminado de elementos HTML y aplica
+ * clases utilitarias de Tailwind a selectores universales.
+ */
+@layer base {
+  /**
+   * Normalización universal.
+   * Aplica color de borde consistente y outline con opacidad al 50% para
+   * estados de focus visibles y accesibles.
+   */
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /**
+   * Estilos del body.
+   * Aplica colores de fondo y texto base definidos en variables del sistema.
+   */
+  body {
+    @apply bg-background text-foreground;
+  }
+}
