@@ -182,6 +182,8 @@ export interface ColorAnalysisSummary {
     global_palette?: ColorPalette[]
     /** Diferencia promedio de matiz entre frames consecutivos */
     avg_hue_difference?: number
+    /** Valor numérico promedio de temperatura de color [-1 a 1] */
+    avg_temperature_value?: number
 }
 
 /**
@@ -252,11 +254,11 @@ export interface CompositionData {
 export interface CompositionSummary {
     /** Número total de frames analizados */
     total_analyzed: number
-    /** Score promedio de regla de tercios */
+    /** Score promedio de regla de tercios [0-100] */
     avg_rule_of_thirds?: number
-    /** Score promedio de simetría */
+    /** Score promedio de simetría [0-100] */
     avg_symmetry?: number
-    /** Score promedio de balance visual */
+    /** Score promedio de balance visual [0-100] */
     avg_balance?: number
     /** Promedio de líneas detectadas por frame */
     avg_lines?: number

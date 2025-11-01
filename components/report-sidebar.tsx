@@ -433,9 +433,9 @@ Generado con CVFlix - Análisis cinematográfico con IA + OpenCV
                       <div className="flex justify-between py-2">
                         <span className="text-zinc-400">Composición:</span>
                         <span className="text-white font-semibold">
-                          Tercios: {report.composition_summary.avg_rule_of_thirds?.toFixed(2) || 'N/A'} |
-                          Simetría: {report.composition_summary.avg_symmetry?.toFixed(2) || 'N/A'}
-                        </span>
+                        Tercios: {report.composition_summary.avg_rule_of_thirds?.toFixed(1)}% |
+                        Simetría: {report.composition_summary.avg_symmetry?.toFixed(1)}%
+                      </span>
                       </div>
                   )}
                 </div>

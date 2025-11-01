@@ -5,23 +5,104 @@ import { Chart } from 'chart.js/auto'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 /**
- * GENERADOR DE PDF ESTILO NETFLIX - CVFlix v2.0
- * ✅ Diseño mejorado con márgenes uniformes
- * ✅ Headers con logo y rectángulo negro
- * ✅ Footer con fecha y paginación
- * ✅ Iconos para emociones en lugar de emojis
- * ✅ Diagramas con tamaño uniforme y buena separación
+ * pdf-generator.ts
+ *
+ * Generador de reportes PDF estilo Netflix para análisis cinematográficos.
+ * Utiliza jsPDF para composición de documentos y Chart.js para renderizado
+ * de gráficos estadísticos sin manipulación DOM.
+ *
+ * Author: César Sánchez Montes
+ * Course: Imagen Digital
+ * Year: 2025
+ * Version: 3.0.0
+ *
+ * Dependencies:
+ *   - jspdf: Generación de documentos PDF
+ *   - chart.js/auto: Renderizado de gráficos en canvas
+ *   - @/lib/types: Definiciones de tipos TypeScript
+ *
+ * Usage:
+ *   import { generateNetflixPDF } from '@/lib/pdf-generator'
+ *
+ *   await generateNetflixPDF(
+ *     analysisReport,
+ *     firstFrameUrl,
+ *     posterUrl
+ *   )
+ *
+ * Notes:
+ *   Características del PDF:
+ *     - Formato A4 vertical (210x297mm)
+ *     - 7 páginas estructuradas con headers/footers uniformes
+ *     - Paleta cromática Netflix (rojo #E50914, negro, grises)
+ *     - Gráficos renderizados como imágenes base64
+ *     - Márgenes consistentes de 20mm laterales
+ *
+ *   Estructura del documento:
+ *     Página 1: Portada con poster y título
+ *     Página 2: Actores detectados y distribución de planos
+ *     Página 3: Análisis de emociones (donut + gauge)
+ *     Página 4: Análisis de color (histograma + paleta)
+ *     Página 5: Análisis cromático avanzado y composición
+ *     Página 6: Análisis de iluminación (zonas, tipos, exposición)
+ *     Página 7: Movimientos de cámara (donut + timeline)
+ *
+ *   Optimizaciones:
+ *     - Gráficos generados en memoria sin DOM
+ *     - Imágenes cargadas de forma asíncrona con manejo de errores
+ *     - Proxy de imágenes para CORS en TMDB
  */
 
-// ==================== CONFIGURACIÓN NETFLIX ====================
+// ==================== CONFIGURACIÓN DE PALETA CROMÁTICA ====================
+
+/**
+ * Color primario de marca Netflix.
+ * @constant
+ */
 const NETFLIX_RED = "#E50914"
+
+/**
+ * Variante oscura del rojo Netflix para contraste.
+ * @constant
+ */
 const DARK_RED = "#B71C1C"
+
+/**
+ * Negro puro para fondos y textos de alto contraste.
+ * @constant
+ */
 const BLACK = "#000000"
+
+/**
+ * Blanco puro para textos sobre fondos oscuros.
+ * @constant
+ */
 const WHITE = "#FFFFFF"
+
+/**
+ * Gris oscuro para fondos secundarios.
+ * @constant
+ */
 const DARK_GRAY = "#141414"
+
+/**
+ * Gris medio para textos secundarios.
+ * @constant
+ */
 const MID_GRAY = "#757575"
+
+/**
+ * Gris claro para fondos de elementos UI.
+ * @constant
+ */
 const LIGHT_GRAY = "#E5E5E5"
 
+/**
+ * Paleta de colores en formato RGB para jsPDF.
+ *
+ * Notes:
+ *   jsPDF requiere colores en tuplas RGB [r, g, b] para setFillColor/setTextColor.
+ */
 const colors = {
   red: [229, 9, 20] as [number, number, number],
   darkRed: [183, 28, 28] as [number, number, number],
@@ -31,21 +112,40 @@ const colors = {
   mediumGray: [117, 117, 117] as [number, number, number],
 }
 
-// Colores naturales para emociones con iconos SVG
+/**
+ * Configuración de iconos y colores para emociones detectadas.
+ *
+ * Mapea cada emoción a un color natural representativo y un icono SVG
+ * para visualización consistente en gráficos y gauges.
+ *
+ * @constant
+ */
 const EMOTION_CONFIG = {
-  "Feliz": { color: "#4CAF50", icon: "smile" },        // Verde - 😊
-  "Triste": { color: "#2196F3", icon: "cloud-rain" },  // Azul - ☁
-  "Neutral": { color: "#9E9E9E", icon: "minus" },      // Gris - −
-  "Enfadado": { color: "#E50914", icon: "flame" },     // Rojo - 🔥
-  "Sorprendido": { color: "#FF9800", icon: "zap" },    // Naranja - ⚡
-  "Miedo": { color: "#9C27B0", icon: "skull" },        // Morado - ☠
-  "Disgustado": { color: "#795548", icon: "frown" }    // Marrón - ☹
+  "Feliz": { color: "#4CAF50", icon: "smile" },
+  "Triste": { color: "#2196F3", icon: "cloud-rain" },
+  "Neutral": { color: "#9E9E9E", icon: "minus" },
+  "Enfadado": { color: "#E50914", icon: "flame" },
+  "Sorprendido": { color: "#FF9800", icon: "zap" },
+  "Miedo": { color: "#9C27B0", icon: "skull" },
+  "Disgustado": { color: "#795548", icon: "frown" }
 }
 
-// ==================== FUNCIONES DE GENERACIÓN DE GRÁFICOS ====================
+// ==================== FUNCIONES DE CARGA DE RECURSOS ====================
 
 /**
- * Cargar logo desde public
+ * Carga logo de CVFlix desde directorio public.
+ *
+ * Convierte imagen PNG a formato base64 para inclusión en PDF.
+ * Implementa fallback a null si logo no está disponible.
+ *
+ * @returns Promise con data URL base64 del logo o null si falla
+ *
+ * Notes:
+ *   Flujo de carga:
+ *     1. Crea elemento Image con ruta /logo.png
+ *     2. Dibuja imagen en canvas temporal
+ *     3. Extrae data URL mediante toDataURL()
+ *     4. Retorna null en caso de error de carga
  */
 async function loadLogo(): Promise<string | null> {
   try {
@@ -90,11 +190,27 @@ async function loadLogo(): Promise<string | null> {
 }
 
 /**
- * Crear SVG de icono manualmente y convertirlo a imagen
- * Esta es la forma correcta de usar "iconos" en canvas
+ * Crea icono SVG y lo convierte a imagen base64.
+ *
+ * Genera SVG programáticamente con path específico del icono,
+ * lo convierte a blob y finalmente a data URL para uso en canvas.
+ *
+ * @param iconName - Nombre del icono (smile, cloud-rain, minus, frown, skull, zap, flame)
+ * @param color - Color en formato hexadecimal
+ * @param size - Tamaño del icono en píxeles (default: 32)
+ * @returns Promise con data URL base64 del icono o string vacío si falla
+ *
+ * Notes:
+ *   Iconos disponibles:
+ *     - smile: Cara sonriente para emoción Feliz
+ *     - cloud-rain: Nube con lluvia para emoción Triste
+ *     - minus: Línea horizontal para emoción Neutral
+ *     - frown: Cara triste para emoción Disgustado
+ *     - skull: Calavera para emoción Miedo
+ *     - zap: Rayo para emoción Sorprendido
+ *     - flame: Llama para emoción Enfadado
  */
 async function createIconSVG(iconName: string, color: string, size: number = 32): Promise<string> {
-  // SVGs manuales de los iconos (equivalentes a lucide-react)
   const iconPaths: Record<string, string> = {
     "smile": '<path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="9" cy="9" r="1" fill="currentColor"/><circle cx="15" cy="9" r="1" fill="currentColor"/>',
     "cloud-rain": '<path d="M16 13v8M12 13v8M8 13v8M4 14.8C2.2 13.6 1 11.8 1 9.7 1 6.5 3.6 4 6.8 4c1.4 0 2.7.5 3.7 1.3C11.3 3.5 13.5 2 16 2c3.9 0 7 3.1 7 7 0 2.4-1.2 4.5-3 5.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
@@ -142,8 +258,27 @@ async function createIconSVG(iconName: string, color: string, size: number = 32)
   })
 }
 
+// ==================== FUNCIONES DE GENERACIÓN DE GRÁFICOS ====================
+
 /**
- * Gráfico de barras horizontales para tipos de plano - ✅ CORREGIDO
+ * Genera gráfico de barras horizontales para distribución de tipos de plano.
+ *
+ * Crea visualización de los 8 tipos de plano más frecuentes con barras
+ * horizontales coloreadas en rojo oscuro. Incluye etiquetas con porcentajes
+ * posicionadas dentro o fuera de las barras según su tamaño.
+ *
+ * @param data - Objeto con tipos de plano como claves y porcentajes como valores
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 900x500 píxeles
+ *   Configuración de Chart.js:
+ *     - Tipo: bar con indexAxis 'y' (horizontal)
+ *     - Color: DARK_RED (#B71C1C)
+ *     - Barras con borderRadius de 8px
+ *     - Escala X: 0-100% sin ticks visibles
+ *     - Escala Y: etiquetas en negrita, tamaño 16px
+ *     - Plugin personalizado para etiquetas de porcentaje
  */
 async function generateShotDistributionChart(
     data: Record<string, number>
@@ -235,7 +370,6 @@ async function generateShotDistributionChart(
             chart.data.datasets[0].data.forEach((value, index) => {
               const bar = meta.data[index]
 
-              // Porcentaje dentro/al lado de la barra
               ctx.fillStyle = 'white'
               ctx.font = 'bold 18px sans-serif'
               ctx.textAlign = 'right'
@@ -245,7 +379,6 @@ async function generateShotDistributionChart(
               const barX = (bar as any).x
               const barY = (bar as any).y
 
-              // Si la barra es muy pequeña, poner el texto fuera
               if (barWidth < 80) {
                 ctx.fillStyle = BLACK
                 ctx.fillText(
@@ -266,11 +399,9 @@ async function generateShotDistributionChart(
         }]
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando shot distribution chart:', error)
       resolve('')
@@ -279,7 +410,25 @@ async function generateShotDistributionChart(
 }
 
 /**
- * Donut de distribución de emociones con iconos
+ * Genera gráfico de donut para distribución de emociones.
+ *
+ * Crea visualización circular de las 7 emociones más frecuentes con
+ * colores específicos por emoción. Incluye leyenda inferior y etiquetas
+ * de porcentaje dentro de segmentos mayores al 5%.
+ *
+ * @param distribution - Objeto con emociones como claves y porcentajes como valores
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x700 píxeles
+ *   Colores mapeados desde EMOTION_CONFIG:
+ *     - Feliz: Verde (#4CAF50)
+ *     - Triste: Azul (#2196F3)
+ *     - Neutral: Gris (#9E9E9E)
+ *     - Enfadado: Rojo (#E50914)
+ *     - Sorprendido: Naranja (#FF9800)
+ *     - Miedo: Morado (#9C27B0)
+ *     - Disgustado: Marrón (#795548)
  */
 async function generateEmotionDonutChart(
     distribution: Record<string, number>
@@ -358,11 +507,9 @@ async function generateEmotionDonutChart(
         }]
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando emotion donut chart:', error)
       resolve('')
@@ -371,7 +518,25 @@ async function generateEmotionDonutChart(
 }
 
 /**
- * Medidor semicircular de emoción dominante con iconos mejorados
+ * Genera medidor semicircular (gauge) de emoción dominante.
+ *
+ * Crea visualización de semicírculo con 7 segmentos coloreados por emoción,
+ * aguja indicadora apuntando a la emoción dominante, y símbolos Unicode
+ * posicionados en cada segmento.
+ *
+ * @param dominantEmotion - Nombre de la emoción predominante
+ * @param percentage - Porcentaje de aparición de la emoción dominante
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x700 píxeles
+ *   Distribución angular: 180° divididos en 7 segmentos de 25.7° cada uno
+ *   Orden de emociones (izquierda a derecha):
+ *     Feliz → Sorprendido → Neutral → Disgustado → Miedo → Triste → Enfadado
+ *   Centro: coordenadas (350, 380) con radio de 220px
+ *   Símbolos Unicode utilizados:
+ *     Feliz: ☺, Sorprendido: ⚡, Neutral: −, Disgustado: ☹
+ *     Miedo: ☠, Triste: ☁, Enfadado: 🔥
  */
 async function generateEmotionGaugeChart(
     dominantEmotion: string,
@@ -491,10 +656,8 @@ async function generateEmotionGaugeChart(
       ctx.fillStyle = MID_GRAY
       ctx.fillText(`${percentage.toFixed(1)}% del contenido`, centerX, centerY + 185)
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando emotion gauge:', error)
       resolve('')
@@ -503,7 +666,23 @@ async function generateEmotionGaugeChart(
 }
 
 /**
- * Histograma RGB
+ * Genera histograma RGB de distribución de colores.
+ *
+ * Crea gráfico de líneas superpuestas para canales rojo, verde y azul
+ * mostrando frecuencia de intensidad de 0-255. Implementa relleno
+ * semitransparente bajo cada curva para mejor legibilidad.
+ *
+ * @param data - Objeto con arrays de frecuencias para canales r, g, b
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 900x350 píxeles
+ *   Colores de canales:
+ *     - Rojo: rgba(229, 9, 20, 0.8) con relleno al 15%
+ *     - Verde: rgba(76, 175, 80, 0.8) con relleno al 15%
+ *     - Azul: rgba(33, 150, 243, 0.8) con relleno al 15%
+ *   Suavizado: tension 0.3 para curvas suaves
+ *   Escala X: 256 valores (0-255) con máximo 10 ticks visibles
  */
 async function generateColorHistogramChart(
     data: { r: number[]; g: number[]; b: number[] }
@@ -596,11 +775,9 @@ async function generateColorHistogramChart(
         }
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando histogram:', error)
       resolve('')
@@ -609,7 +786,30 @@ async function generateColorHistogramChart(
 }
 
 /**
- * Gráfico de análisis de esquema cromático
+ * Genera gráfico de análisis de esquema cromático.
+ *
+ * Visualiza esquema de color dominante (monocromático, análogo, complementario)
+ * con muestra de colores principales, barra de diferencia angular de matiz
+ * y nivel de contraste calculado.
+ *
+ * @param scheme - Nombre del esquema cromático detectado
+ * @param maxHueDifference - Diferencia angular máxima entre matices (0-180°)
+ * @param dominantColors - Array de hasta 3 colores dominantes con hex, rgb y frecuencia
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x400 píxeles
+ *   Estructura visual:
+ *     - Título del esquema en recuadro negro (250x50px)
+ *     - Muestra de colores: hasta 3 cuadrados de 80x80px
+ *     - Barra de diferencia angular con gradiente gris→rojo→rojo oscuro
+ *     - Etiquetas: 0° (Monocromático) a 180° (Complementario)
+ *   Niveles de contraste:
+ *     - Muy Bajo: 0-15°
+ *     - Bajo: 15-30°
+ *     - Moderado: 30-60°
+ *     - Alto: 60-120°
+ *     - Muy Alto: 120-180°
  */
 async function generateColorSchemeChart(
     scheme: string,
@@ -745,10 +945,8 @@ async function generateColorSchemeChart(
       ctx.textAlign = 'right'
       ctx.fillText(contrastLevel, 630, 365)
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando color scheme chart:', error)
       resolve('')
@@ -757,7 +955,31 @@ async function generateColorSchemeChart(
 }
 
 /**
- * Gauge de temperatura de color
+ * Genera gauge de temperatura de color.
+ *
+ * Visualiza temperatura cromática mediante barra horizontal con gradiente
+ * de azul (frío) a naranja (cálido), indicador de posición y conversión
+ * aproximada a escala Kelvin.
+ *
+ * @param temperature - Objeto con etiqueta descriptiva y valor normalizado (-1 a 1)
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x350 píxeles
+ *   Barra de temperatura: 600x55px con gradiente de 7 stops
+ *   Gradiente de colores:
+ *     0.0: Azul frío (#1E88E5)
+ *     0.2: Azul medio (#42A5F5)
+ *     0.35: Azul claro (#90CAF9)
+ *     0.5: Neutral (#E0E0E0)
+ *     0.65: Naranja claro (#FFB74D)
+ *     0.8: Naranja (#FF9800)
+ *     1.0: Naranja cálido (#E64A19)
+ *   Conversión Kelvin: valor -1 → 2000K, valor 1 → 10000K
+ *   Interpretaciones:
+ *     - value > 0.2: Tonos cálidos (naranjas/rojos)
+ *     - -0.1 ≤ value ≤ 0.2: Equilibrada (luz de día)
+ *     - value < -0.1: Tonos fríos (azules)
  */
 async function generateColorTemperatureGauge(
     temperature: { label: string; value: number }
@@ -766,7 +988,7 @@ async function generateColorTemperatureGauge(
     try {
       const canvas = document.createElement('canvas')
       canvas.width = 700
-      canvas.height = 350  // Reducido de 400 a 350
+      canvas.height = 350
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -780,12 +1002,12 @@ async function generateColorTemperatureGauge(
       ctx.font = 'bold 22px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText('Temperatura de Color', 350, 30)  // Reducido espaciado
+      ctx.fillText('Temperatura de Color', 350, 30)
 
       const barWidth = 600
-      const barHeight = 55  // Reducido de 60 a 55
+      const barHeight = 55
       const barX = 50
-      const barY = 60  // Reducido de 70 a 60
+      const barY = 60
 
       const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0)
       gradient.addColorStop(0, '#1E88E5')
@@ -807,7 +1029,7 @@ async function generateColorTemperatureGauge(
       const indicatorX = barX + (percentage / 100) * barWidth
 
       ctx.fillStyle = BLACK
-      ctx.fillRect(indicatorX - 3, barY - 12, 6, barHeight + 24)  // Reducido
+      ctx.fillRect(indicatorX - 3, barY - 12, 6, barHeight + 24)
 
       ctx.beginPath()
       ctx.moveTo(indicatorX, barY - 12)
@@ -834,19 +1056,19 @@ async function generateColorTemperatureGauge(
 
       const kelvinApprox = Math.round(2000 + (temperature.value + 1) * 4000)
 
-      ctx.font = 'bold 38px sans-serif'  // Reducido de 42
+      ctx.font = 'bold 38px sans-serif'
       ctx.fillStyle = BLACK
       ctx.textAlign = 'center'
-      ctx.fillText(temperature.label, 350, 200)  // Reducido espaciado
+      ctx.fillText(temperature.label, 350, 200)
 
-      ctx.font = '22px sans-serif'  // Reducido de 24
+      ctx.font = '22px sans-serif'
       ctx.fillStyle = MID_GRAY
-      ctx.fillText(`~${kelvinApprox}K`, 350, 230)  // Reducido espaciado
+      ctx.fillText(`~${kelvinApprox}K`, 350, 230)
 
-      ctx.font = '15px sans-serif'  // Reducido de 16
-      ctx.fillText(`Valor: ${temperature.value.toFixed(2)}`, 350, 255)  // Reducido espaciado
+      ctx.font = '15px sans-serif'
+      ctx.fillText(`Valor: ${temperature.value.toFixed(2)}`, 350, 255)
 
-      ctx.font = '13px sans-serif'  // Reducido de 14
+      ctx.font = '13px sans-serif'
       ctx.fillStyle = MID_GRAY
       let interpretation = ''
       if (temperature.value > 0.2) {
@@ -857,12 +1079,10 @@ async function generateColorTemperatureGauge(
         interpretation = 'Tonos fríos predominantes (azules)'
       }
       ctx.textAlign = 'center'
-      ctx.fillText(interpretation, 350, 300)  // Reducido espaciado
+      ctx.fillText(interpretation, 350, 300)
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando temperature gauge:', error)
       resolve('')
@@ -871,7 +1091,24 @@ async function generateColorTemperatureGauge(
 }
 
 /**
- * Radar de composición
+ * Genera gráfico radar de análisis de composición visual.
+ *
+ * Crea visualización de 4 métricas de composición (regla de tercios,
+ * simetría, balance, profundidad) en formato radar con escala 0-1.
+ *
+ * @param data - Objeto con valores normalizados de métricas de composición
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 600x600 píxeles
+ *   Métricas visualizadas:
+ *     - rule_of_thirds: Adherencia a regla de los tercios
+ *     - symmetry: Nivel de simetría vertical/horizontal
+ *     - balance: Equilibrio de peso visual
+ *     - depth_cues: Indicadores de profundidad (perspectiva, solapamiento)
+ *   Escala radial: 0.0 a 1.0 con pasos de 0.25
+ *   Color: DARK_RED (#B71C1C) con relleno al 25% de opacidad
+ *   Puntos de datos: círculos de 8px con borde blanco
  */
 async function generateCompositionRadarChart(
     data: { rule_of_thirds: number; symmetry: number; balance: number; depth_cues: number }
@@ -937,11 +1174,9 @@ async function generateCompositionRadarChart(
         }
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando composition radar:', error)
       resolve('')
@@ -950,7 +1185,24 @@ async function generateCompositionRadarChart(
 }
 
 /**
- * Gráfico de zonas de iluminación
+ * Genera gráfico de distribución de zonas de iluminación.
+ *
+ * Visualiza porcentaje de píxeles en tres rangos de luminosidad mediante
+ * barras horizontales con colores representativos de cada zona.
+ *
+ * @param zones - Objeto con proporciones de sombras, medios tonos y altas luces
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x350 píxeles
+ *   Zonas de luminosidad (escala 0-255):
+ *     - Sombras: 0-85 (color: #212121 negro profundo)
+ *     - Medios Tonos: 85-170 (color: #757575 gris medio)
+ *     - Altas Luces: 170-255 (color: #BDBDBD gris claro)
+ *   Barras: 550x50px con fondo #f0f0f0 y relleno proporcional
+ *   Etiquetas de porcentaje:
+ *     - Dentro de barra si valor > 15%
+ *     - Color blanco para zonas oscuras, negro para zona clara
  */
 async function generateLightingZonesChart(
     zones: { shadows: number; midtones: number; highlights: number }
@@ -1021,10 +1273,8 @@ async function generateLightingZonesChart(
         yPos += 90
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando lighting zones:', error)
       resolve('')
@@ -1033,7 +1283,26 @@ async function generateLightingZonesChart(
 }
 
 /**
- * Gráfico de tipos de iluminación
+ * Genera gráfico de barras horizontales para tipos de iluminación.
+ *
+ * Visualiza distribución de hasta 6 tipos de iluminación más frecuentes
+ * (High-key, Low-key, Normal, Natural, Artificial, Mixed) con colores
+ * representativos en escala de grises.
+ *
+ * @param distribution - Objeto con tipos de iluminación como claves y porcentajes como valores
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x350 píxeles
+ *   Colores por tipo:
+ *     - High-key: #BDBDBD (gris claro)
+ *     - Low-key: #212121 (negro profundo)
+ *     - Normal: #757575 (gris medio)
+ *     - Natural: #9E9E9E (gris neutro)
+ *     - Artificial: #616161 (gris oscuro)
+ *     - Mixed: #424242 (gris muy oscuro)
+ *   Barras con borderRadius de 6px
+ *   Etiquetas de porcentaje en blanco dentro de barras
  */
 async function generateLightingTypesChart(
     distribution: Record<string, number>
@@ -1136,11 +1405,9 @@ async function generateLightingTypesChart(
         }]
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando lighting types:', error)
       resolve('')
@@ -1149,7 +1416,26 @@ async function generateLightingTypesChart(
 }
 
 /**
- * Gauge de exposición
+ * Genera gauge de control de exposición.
+ *
+ * Visualiza porcentaje de píxeles sobreexpuestos (quemados) y subexpuestos
+ * (perdidos) mediante barras horizontales con indicadores de alerta.
+ *
+ * @param overexposed - Proporción de píxeles sobreexpuestos (0-1)
+ * @param underexposed - Proporción de píxeles subexpuestos (0-1)
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x350 píxeles
+ *   Barras de exposición: 550x45px con escala 0-10%
+ *   Colores:
+ *     - Sobreexposición: #B71C1C (rojo oscuro)
+ *     - Subexposición: #212121 (negro)
+ *   Interpretación:
+ *     - Si overexposed > 1% O underexposed > 1%:
+ *       "⚠️ Atención: Pérdida significativa de información"
+ *     - Si ambos ≤ 1%:
+ *       "✓ Exposición controlada correctamente"
  */
 async function generateExposureGauge(
     overexposed: number,
@@ -1229,10 +1515,8 @@ async function generateExposureGauge(
       }
       ctx.fillText(interpretation, 350, 295)
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando exposure gauge:', error)
       resolve('')
@@ -1241,7 +1525,28 @@ async function generateExposureGauge(
 }
 
 /**
- * Donut de movimientos de cámara
+ * Genera gráfico de donut para distribución de movimientos de cámara.
+ *
+ * Visualiza hasta 7 tipos de movimiento más frecuentes (Estático, Pan,
+ * Tilt, Zoom, Tracking, Dolly, Crane) con colores en escala de grises
+ * y etiquetas de porcentaje en segmentos mayores al 5%.
+ *
+ * @param distribution - Objeto con tipos de movimiento como claves y porcentajes como valores
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 700x700 píxeles
+ *   Colores por tipo de movimiento:
+ *     - Estático/Static: #9E9E9E (gris neutro)
+ *     - Pan: #E50914 (rojo Netflix)
+ *     - Tilt: #B71C1C (rojo oscuro)
+ *     - Zoom: #000000 (negro)
+ *     - Tracking: #424242 (gris muy oscuro)
+ *     - Dolly: #757575 (gris medio)
+ *     - Crane: #616161 (gris oscuro)
+ *   Etiquetas de porcentaje:
+ *     - Negro para fondos claros (#9E9E9E, #757575)
+ *     - Blanco para fondos oscuros (resto)
  */
 async function generateCameraMovementDonutChart(
     distribution: Record<string, number>
@@ -1334,11 +1639,9 @@ async function generateCameraMovementDonutChart(
         }]
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando camera movement donut:', error)
       resolve('')
@@ -1347,7 +1650,25 @@ async function generateCameraMovementDonutChart(
 }
 
 /**
- * Timeline de movimientos de cámara
+ * Genera gráfico de timeline de evolución temporal de movimientos de cámara.
+ *
+ * Visualiza frecuencia de hasta 5 tipos de movimiento en intervalos de 10
+ * segundos mediante gráfico de barras apiladas.
+ *
+ * @param timeline - Array de objetos con frame, tipo de movimiento e intensidad
+ * @returns Promise con data URL base64 del gráfico o string vacío si falla
+ *
+ * Notes:
+ *   Dimensiones del canvas: 1000x500 píxeles
+ *   Procesamiento de datos:
+ *     - Conversión de frames a segundos (30 fps)
+ *     - Agrupación en intervalos de 10 segundos
+ *     - Conteo de apariciones por tipo de movimiento
+ *   Configuración visual:
+ *     - Barras apiladas verticalmente
+ *     - Colores según CAMERA_COLORS
+ *     - Etiquetas de eje X rotadas 45°
+ *     - Título: "Evolución Temporal de Movimientos"
  */
 async function generateCameraTimelineChart(
     timeline: Array<{ frame: number; type: string; intensity: number }>
@@ -1355,8 +1676,8 @@ async function generateCameraTimelineChart(
   return new Promise((resolve) => {
     try {
       const canvas = document.createElement('canvas')
-      canvas.width = 1000  // Aumentado de 900 a 1000
-      canvas.height = 500   // Aumentado de 450 a 500
+      canvas.width = 1000
+      canvas.height = 500
 
       const ctx = canvas.getContext('2d')
       if (!ctx) {
@@ -1412,19 +1733,19 @@ async function generateCameraTimelineChart(
             legend: {
               position: 'top',
               labels: {
-                font: { size: 15, weight: 'bold' },  // Aumentado de 14 a 15
+                font: { size: 15, weight: 'bold' },
                 color: BLACK,
-                boxWidth: 28,  // Aumentado de 25 a 28
-                padding: 18    // Aumentado de 15 a 18
+                boxWidth: 28,
+                padding: 18
               }
             },
             tooltip: { enabled: false },
             title: {
               display: true,
               text: 'Evolución Temporal de Movimientos',
-              font: { size: 20, weight: 'bold' },  // Aumentado de 18 a 20
+              font: { size: 20, weight: 'bold' },
               color: BLACK,
-              padding: { bottom: 18 }  // Aumentado de 15 a 18
+              padding: { bottom: 18 }
             }
           },
           scales: {
@@ -1432,7 +1753,7 @@ async function generateCameraTimelineChart(
               stacked: true,
               grid: { display: false },
               ticks: {
-                font: { size: 12 },  // Aumentado de 11 a 12
+                font: { size: 12 },
                 color: MID_GRAY,
                 maxRotation: 45,
                 minRotation: 45
@@ -1442,7 +1763,7 @@ async function generateCameraTimelineChart(
               stacked: true,
               grid: { color: 'rgba(0,0,0,0.06)' },
               ticks: {
-                font: { size: 13 },  // Aumentado de 12 a 13
+                font: { size: 13 },
                 color: MID_GRAY
               }
             }
@@ -1450,11 +1771,9 @@ async function generateCameraTimelineChart(
         }
       })
 
-      setTimeout(() => {
-        const imgData = canvas.toDataURL('image/png')
-        chart.destroy()
-        resolve(imgData)
-      }, 100)
+      const imgData = canvas.toDataURL('image/png')
+      chart.destroy()
+      resolve(imgData)
     } catch (error) {
       console.error('Error generando camera timeline:', error)
       resolve('')
@@ -1463,7 +1782,21 @@ async function generateCameraTimelineChart(
 }
 
 /**
- * Cargar imagen desde URL
+ * Carga imagen desde URL y la convierte a data URL base64.
+ *
+ * Maneja imágenes de TMDB mediante proxy para evitar problemas CORS.
+ * Dibuja imagen en canvas temporal y extrae data URL en formato JPEG.
+ *
+ * @param url - URL de la imagen a cargar
+ * @returns Promise con data URL base64 o null si falla
+ *
+ * Notes:
+ *   Procesamiento de URLs:
+ *     - URLs de TMDB (image.tmdb.org): Redirige a /image-proxy con URL codificada
+ *     - URLs relativas: Prefija con API_URL
+ *     - URLs absolutas: Usa directamente
+ *   Atributo crossOrigin: "anonymous" para recursos externos
+ *   Formato de salida: image/jpeg para optimizar tamaño
  */
 function loadImage(url: string): Promise<string | null> {
   return new Promise((resolve) => {
@@ -1510,8 +1843,54 @@ function loadImage(url: string): Promise<string | null> {
   })
 }
 
-// ==================== GENERADOR PRINCIPAL ====================
+// ==================== FUNCIÓN PRINCIPAL DE GENERACIÓN ====================
 
+/**
+ * Genera documento PDF completo con análisis cinematográfico estilo Netflix.
+ *
+ * Función principal que orquesta generación de todas las páginas del PDF
+ * incluyendo portada, actores, emociones, color, iluminación y movimientos
+ * de cámara. Implementa estructura de 7 páginas con headers/footers uniformes.
+ *
+ * @param report - Objeto AnalysisReport con todos los datos del análisis
+ * @param firstFrameUrl - URL opcional del primer frame del video
+ * @param posterUrl - URL opcional del poster del contenido
+ * @throws Error si report no contiene título
+ *
+ * Notes:
+ *   Flujo de generación:
+ *     1. Validación de reporte (requiere título mínimo)
+ *     2. Carga asíncrona de logo y poster
+ *     3. Inicialización de documento jsPDF (A4, portrait)
+ *     4. Generación secuencial de 7 páginas:
+ *        - Página 1: Portada con poster y título
+ *        - Página 2: Actores detectados + distribución de planos
+ *        - Página 3: Emociones (donut + gauge)
+ *        - Página 4: Análisis de color (histograma + paleta)
+ *        - Página 5: Análisis cromático + composición
+ *        - Página 6: Iluminación (zonas + tipos + exposición)
+ *        - Página 7: Movimientos de cámara (donut + timeline)
+ *     5. Guardado con nombre "CVFlix - [título].pdf"
+ *
+ *   Variables de contexto:
+ *     - pageWidth: 210mm (ancho A4)
+ *     - pageHeight: 297mm (alto A4)
+ *     - yPos: Posición vertical dinámica para contenido
+ *     - pageNumber: Contador de páginas (0-indexed)
+ *     - totalPages: 7 (constante)
+ *
+ *   Funciones auxiliares internas:
+ *     - addPage(): Crea nueva página y reinicia yPos
+ *     - addHeader(): Dibuja header con logo y título de sección
+ *     - addFooter(): Añade fecha y numeración de página
+ *
+ *   Gestión de espaciado:
+ *     - Header negro: 18mm desde top
+ *     - Recuadro título sección: 12mm (si aplicable)
+ *     - yPos inicial tras header: 43mm
+ *     - Márgenes laterales: 20mm (15mm para contenido)
+ *     - Footer: 10mm desde bottom
+ */
 export async function generateNetflixPDF(
     report: AnalysisReport,
     firstFrameUrl?: string,
@@ -1541,23 +1920,36 @@ export async function generateNetflixPDF(
     let pageNumber = 0
     const totalPages = 7
 
-    // ==================== FUNCIONES AUXILIARES ====================
-
+    /**
+     * Añade nueva página al documento PDF.
+     *
+     * Incrementa contador de páginas y reinicia posición vertical (yPos)
+     * al valor estándar de 43mm para dejar espacio al header.
+     */
     function addPage() {
       doc.addPage()
       pageNumber++
-      yPos = 43  // Dejar espacio para header (18mm) + recuadro negro título (12mm) + margen (13mm)
+      yPos = 43
     }
 
+    /**
+     * Añade header con logo y título de sección.
+     *
+     * Dibuja barra negra superior de 18mm con logo centrado o texto fallback.
+     * Si se proporciona título de sección, añade recuadro negro adicional
+     * de 12mm con texto centrado en blanco.
+     *
+     * @param title - Título de la sección actual (opcional)
+     * @param logoImage - Data URL del logo o null para usar texto
+     */
     async function addHeader(title: string, logoImage?: string | null) {
-      // Fondo negro de la cabecera (siempre presente)
       doc.setFillColor(...colors.black)
       doc.rect(0, 0, pageWidth, 18, "F")
 
       if (logoImage) {
         const logoWidth = 35
         const logoHeight = 12
-        const logoX = (pageWidth - logoWidth) / 2  // Centrado
+        const logoX = (pageWidth - logoWidth) / 2
         const logoY = 3
 
         try {
@@ -1576,7 +1968,6 @@ export async function generateNetflixPDF(
         doc.text("CVFlix", pageWidth / 2, 12, { align: "center" })
       }
 
-      // Si hay título de sección, crear recuadro negro debajo del header
       if (title) {
         doc.setFillColor(...colors.black)
         doc.rect(20, 25, pageWidth - 40, 12, "F")
@@ -1588,6 +1979,15 @@ export async function generateNetflixPDF(
       }
     }
 
+    /**
+     * Añade footer con fecha y numeración de página.
+     *
+     * Posiciona fecha actual en formato dd/mm/yyyy en esquina inferior
+     * izquierda y "Página X de Y" en esquina inferior derecha.
+     *
+     * @param page - Número de página actual (1-indexed para visualización)
+     * @param total - Total de páginas del documento
+     */
     function addFooter(page: number, total: number) {
       const currentDate = new Date().toLocaleDateString('es-ES', {
         day: '2-digit',
@@ -1607,7 +2007,6 @@ export async function generateNetflixPDF(
       )
     }
 
-    // ==================== PÁGINA 1: PORTADA ====================
     console.log("📄 Generando página 1: Portada...")
 
     doc.setFillColor(...colors.black)
@@ -1683,7 +2082,6 @@ export async function generateNetflixPDF(
     doc.text(`Frames: ${report.shots}`, 40, yPos + 44)
     doc.text(`Actores: ${report.detectedActors?.length || 0}`, pageWidth - 40, yPos + 38, { align: "right" })
 
-    // ==================== PÁGINA 2: ACTORES Y PLANOS ====================
     console.log("📄 Generando página 2: Actores y Planos...")
     addPage()
     await addHeader("ACTORES/ACTRICES RECONOCID@S", logoImage)
@@ -1756,7 +2154,6 @@ export async function generateNetflixPDF(
         addPage()
         await addHeader("PLANOS CINEMATOGRÁFICOS", logoImage)
       } else {
-        // Añadir recuadro negro para nueva sección
         doc.setFillColor(...colors.black)
         doc.rect(20, yPos, pageWidth - 40, 12, "F")
 
@@ -1775,20 +2172,17 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 3: EMOCIONES ====================
     console.log("📄 Generando página 3: Emociones...")
     addPage()
     await addHeader("DETECCIÓN DE EMOCIONES", logoImage)
 
     if (report.emotions_summary?.distribution) {
-      // DONUT (arriba) - 110x110mm
       const emotionDonut = await generateEmotionDonutChart(report.emotions_summary.distribution)
       if (emotionDonut) {
         doc.addImage(emotionDonut, "PNG", (pageWidth - 110) / 2, yPos, 110, 110, undefined, "FAST")
         yPos += 118
       }
 
-      // GAUGE (abajo) - 110x110mm
       const emotionGauge = await generateEmotionGaugeChart(
           report.emotions_summary.most_common || "Neutral",
           report.emotions_summary.distribution[report.emotions_summary.most_common || "Neutral"] || 0
@@ -1804,7 +2198,6 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 4: COLOR ====================
     console.log("📄 Generando página 4: Análisis de Color...")
     addPage()
     await addHeader("ANÁLISIS DE COLOR", logoImage)
@@ -1834,15 +2227,15 @@ export async function generateNetflixPDF(
         doc.text("Paleta de Colores Dominantes", 15, yPos)
         yPos += 10
 
-        const totalWidth = pageWidth - 50  // Más margen
+        const totalWidth = pageWidth - 50
         const boxWidth = totalWidth / validColors.length
         const boxHeight = 30
 
         validColors.forEach((color, index) => {
-          const x = 25 + index * boxWidth  // Más margen izquierdo
+          const x = 25 + index * boxWidth
 
           doc.setFillColor(color.rgb[0], color.rgb[1], color.rgb[2])
-          doc.rect(x, yPos, boxWidth - 8, boxHeight, "F")  // Aumentado espaciado de 3 a 8
+          doc.rect(x, yPos, boxWidth - 8, boxHeight, "F")
 
           doc.setDrawColor(200, 200, 200)
           doc.setLineWidth(0.5)
@@ -1864,7 +2257,6 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 5: ANÁLISIS CROMÁTICO + COMPOSICIÓN ====================
     console.log("📄 Generando página 5: Análisis Cromático y Composición...")
     addPage()
     await addHeader("ANÁLISIS CROMÁTICO AVANZADO", logoImage)
@@ -1882,21 +2274,17 @@ export async function generateNetflixPDF(
     }
 
     if (report.color_analysis_summary?.most_common_temperature) {
-      const tempValue = report.color_analysis_summary.most_common_temperature === "Cálido" ? 0.5 :
-          report.color_analysis_summary.most_common_temperature === "Frío" ? -0.5 : 0
-
       const tempChart = await generateColorTemperatureGauge({
         label: report.color_analysis_summary.most_common_temperature,
-        value: tempValue
+        value: report.color_analysis_summary.avg_temperature_value || 0
       })
       if (tempChart) {
-        doc.addImage(tempChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")  // Reducido de 67 a 58
+        doc.addImage(tempChart, "PNG", 15, yPos, pageWidth - 30, 58, undefined, "FAST")
         yPos += 60
       }
     }
 
     if (report.composition_summary) {
-      // Añadir recuadro negro para sección de composición
       doc.setFillColor(...colors.black)
       doc.rect(20, yPos, pageWidth - 40, 12, "F")
 
@@ -1922,12 +2310,10 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 6: ILUMINACIÓN ====================
     console.log("📄 Generando página 6: Análisis de Iluminación...")
     addPage()
     await addHeader("ANÁLISIS DE ILUMINACIÓN", logoImage)
 
-    // Gráfico 1: Zonas de iluminación
     if (report.lighting_summary?.exposure?.zones) {
       const zonesChart = await generateLightingZonesChart(report.lighting_summary.exposure.zones)
       if (zonesChart) {
@@ -1943,7 +2329,6 @@ export async function generateNetflixPDF(
       }
     }
 
-    // Gráfico 2: Tipos de iluminación
     if (report.lighting_summary?.distribution) {
       const typesChart = await generateLightingTypesChart(report.lighting_summary.distribution)
       if (typesChart) {
@@ -1952,7 +2337,6 @@ export async function generateNetflixPDF(
       }
     }
 
-    // Gráfico 3: Exposición
     if (report.lighting_summary?.exposure) {
       const exposureChart = await generateExposureGauge(
           report.lighting_summary.exposure.overexposed_pixels || 0.01,
@@ -1976,7 +2360,6 @@ export async function generateNetflixPDF(
 
     addFooter(pageNumber + 1, totalPages)
 
-    // ==================== PÁGINA 7: MOVIMIENTOS CÁMARA ====================
     console.log("📄 Generando página 7: Movimientos de Cámara...")
     addPage()
     await addHeader("MOVIMIENTOS DE CÁMARA", logoImage)
@@ -2000,7 +2383,7 @@ export async function generateNetflixPDF(
       if (report.camera_timeline && Array.isArray(report.camera_timeline) && report.camera_timeline.length > 0) {
         const timeline = await generateCameraTimelineChart(report.camera_timeline)
         if (timeline) {
-          doc.addImage(timeline, "PNG", (pageWidth - 110) / 2, yPos, 110, 61, undefined, "FAST")  // Aumentado de 55 a 61
+          doc.addImage(timeline, "PNG", (pageWidth - 110) / 2, yPos, 110, 61, undefined, "FAST")
         }
       }
     }
