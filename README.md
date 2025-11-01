@@ -14,7 +14,7 @@
 ---
 
 ## Descripción
-Plataforma de análisis automático de video mediante computer vision y deep learning. Implementa:  
+Plataforma de análisis automático de vídeo mediante computer vision y deep learning. Implementa:  
 
 - Detección facial  
 - Reconocimiento de actores  
