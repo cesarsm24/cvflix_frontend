@@ -1,4 +1,4 @@
-# CVFlix - Backend
+# CVFlix - Frontend
 
 <img width="1500" height="180" alt="cvflix banner" src="https://github.com/user-attachments/assets/978219e1-a929-4585-9018-787c23366397" />
 
