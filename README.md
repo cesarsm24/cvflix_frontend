@@ -27,7 +27,9 @@ Plataforma de análisis automático de vídeo mediante computer vision y deep le
 ## Escenas de prueba
 
 Las escenas de vídeo para probar la plataforma se encuentran en la siguiente carpeta:  
+
 [Acceder a las escenas](https://drive.google.com/drive/folders/1grFrUqV0OwTEE7JrpVZuyS6ki3TcwW0u?usp=sharing)
+
 
 > ⚠️ Nota: Algunos archivos de vídeo pueden ser grandes, por lo que se recomienda descargarlos antes de ejecutar la aplicación.
 
